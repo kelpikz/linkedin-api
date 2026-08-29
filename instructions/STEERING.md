@@ -23,6 +23,13 @@ Delete entries that stop being true. A log nobody trusts gets skipped.
 
 ---
 
+## 2026-08-29 Never commit automatically
+
+Ajitha clarified that agents must stop after staging changes and request review.
+
+**Rule:** Commit only after Ajitha explicitly approves the staged snapshot. A
+past approval does not apply to later changes. Already in `../AGENTS.md`.
+
 ## 2026-08-29 Apply the unslop style without being asked
 
 Wrote several replies in default assistant voice. Ajitha invoked `/unslop` three
