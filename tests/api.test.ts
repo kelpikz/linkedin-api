@@ -1,0 +1,85 @@
+import { describe, expect, test } from "bun:test";
+import { createApp } from "../src/api/app.ts";
+import { profileSchema, type Profile } from "../src/core/schema.ts";
+
+const emptyProfile: Profile = {
+	sourceUrl: "https://www.linkedin.com/in/williamhgates/",
+	name: null,
+	headline: null,
+	location: null,
+	about: null,
+	profileImageUrl: null,
+	experience: null,
+	education: null,
+	skills: null,
+	certifications: null,
+	languages: null,
+};
+
+describe("API routes", () => {
+	test("describes the service", async () => {
+		const response = await createApp().request("/");
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({
+			name: "LinkedIn profile API",
+			routes: {
+				profile: "GET /api/profile?url=...",
+				health: "GET /health",
+			},
+		});
+	});
+
+	test("reports health without loading LinkedIn credentials", async () => {
+		const response = await createApp().request("/health");
+		const body = (await response.json()) as {
+			ok: boolean;
+			authenticated: boolean;
+		};
+
+		expect(response.status).toBe(200);
+		expect(body.ok).toBe(true);
+		expect(typeof body.authenticated).toBe("boolean");
+	});
+
+	test("rejects a missing profile URL", async () => {
+		const response = await createApp().request("/api/profile");
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({ error: "url is required" });
+	});
+
+	test("passes the URL to profile-service and returns its result", async () => {
+		const calls: string[] = [];
+		const app = createApp({
+			async getProfile(url: string): Promise<Profile> {
+				calls.push(url);
+				return emptyProfile;
+			},
+		});
+
+		const response = await app.request(
+			"/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fwilliamhgates%2F",
+		);
+		const body = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(calls).toEqual([
+			"https://www.linkedin.com/in/williamhgates/",
+		]);
+		expect(profileSchema.parse(body)).toEqual(emptyProfile);
+	});
+
+	test("returns schema-valid nulls through the default service", async () => {
+		const response = await createApp().request(
+			"/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fsatyanadella%2F",
+		);
+		const body = profileSchema.parse(await response.json());
+
+		expect(response.status).toBe(200);
+		expect(body).toEqual({
+			...emptyProfile,
+			sourceUrl: "https://www.linkedin.com/in/satyanadella/",
+		});
+	});
+});

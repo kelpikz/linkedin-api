@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --watch src/server.ts",
-    "start": "bun src/server.ts",
+    "dev": "bun --watch src/api/index.ts",
+    "start": "bun src/api/index.ts",
     "test": "bun test",
     "verify:har": "bun scripts/verify-har.ts"
   },

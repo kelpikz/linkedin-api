@@ -1,36 +1,60 @@
 import { describe, expect, test } from "bun:test";
-import { loadLinkedInConfig } from "../src/linkedin/config.ts";
 import {
-	buildProfileBody,
-	buildTypeaheadBody,
-} from "../src/linkedin/requests.ts";
+	fetchProfilePage,
+	fetchProfileSection,
+	type LinkedInEndpointRequest,
+} from "../src/core/linkedin/endpoints.ts";
+import { loadLinkedInConfig } from "../src/core/linkedin/http.ts";
 
-describe("request builders", () => {
-	test("builds a typeahead request with fresh session state", () => {
-		const body = buildTypeaheadBody("billgates");
-		expect(body.requestId).toContain("SearchGlobalTypeaheadRequestAction");
-		expect(
-			body.states.find(
-				(state) => state.key === "SearchResultsGlobalTyahKeywordsBinding",
-			)?.value,
-		).toBe("billgates");
-		expect(body.requestedArguments.states).toEqual(body.states);
-	});
+function recordingHttp(response = "raw Flight text") {
+	const requests: LinkedInEndpointRequest[] = [];
+	return {
+		requests,
+		http: {
+			async post(request: LinkedInEndpointRequest): Promise<string> {
+				requests.push(request);
+				return response;
+			},
+		},
+	};
+}
 
-	test("builds a profile prefetch request", () => {
-		const body = buildProfileBody("williamhgates", "profile-id");
-		expect(body.isPrefetch).toBe(true);
-		expect(body.requestedArguments.payload).toEqual({
+describe("LinkedIn endpoints", () => {
+	test("builds a profile page request from vanity name alone", async () => {
+		const { http, requests } = recordingHttp();
+
+		const result = await fetchProfilePage(http, "williamhgates");
+
+		expect(result).toBe("raw Flight text");
+		expect(requests).toHaveLength(1);
+		expect(requests[0]?.path).toBe("/flagship-web/in/williamhgates/");
+		expect(requests[0]?.pageKey).toBe("d_flagship3_profile_view_base");
+		expect(requests[0]?.body.requestedArguments.payload).toEqual({
 			vanityName: "williamhgates",
 			isVanityNameResolved: true,
-			vieweeProfileId: "profile-id",
 		});
 	});
 
-	test("derives the CSRF token from JSESSIONID", () => {
-		const config = loadLinkedInConfig({
-			LINKEDIN_COOKIE: 'foo=bar; JSESSIONID="ajax:123"; baz=qux',
+	test("builds a detail-section request", async () => {
+		const { http, requests } = recordingHttp();
+
+		await fetchProfileSection(http, "satyanadella", "education");
+
+		expect(requests[0]?.path).toBe(
+			"/flagship-web/in/satyanadella/details/education/",
+		);
+		expect(requests[0]?.pageKey).toBe("profile_view_base_details");
+		expect(requests[0]?.body.requestedArguments.payload).toEqual({
+			vanityName: "satyanadella",
+			isVanityNameResolved: true,
+			sectionType: "education",
 		});
-		expect(config.csrfToken).toBe("ajax:123");
 	});
+});
+
+test("derives the CSRF token from JSESSIONID", () => {
+	const config = loadLinkedInConfig({
+		LINKEDIN_COOKIE: 'foo=bar; JSESSIONID="ajax:123"; baz=qux',
+	});
+	expect(config.csrfToken).toBe("ajax:123");
 });

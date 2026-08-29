@@ -1,6 +1,6 @@
-# LinkedIn internal API POC
+# LinkedIn profile API
 
-This Bun and TypeScript service wraps the LinkedIn web requests found in the supplied HAR captures. It is intended for internal experimentation with an account you control. LinkedIn can change these private endpoints without notice.
+This Bun and TypeScript service accepts a LinkedIn profile URL and returns structured JSON. It calls LinkedIn's private web endpoints with a personal session cookie. LinkedIn can change these endpoints without notice.
 
 ## Setup
 
@@ -26,23 +26,17 @@ Never commit `.env`, HAR files, cookies, or CSRF values.
 bun run start
 ```
 
-Search for profiles:
+Request a profile:
 
 ```powershell
-Invoke-RestMethod 'http://localhost:3000/api/search?q=bill%20gates'
+Invoke-RestMethod 'http://localhost:3000/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fwilliamhgates%2F'
 ```
 
-Use a returned `vanityName` and `profileId` to fetch the profile:
-
-```powershell
-Invoke-RestMethod 'http://localhost:3000/api/profile/williamhgates?profileId=PROFILE_ID_FROM_SEARCH'
-```
-
-The profile response includes the normalized name, headline, location, About text, profile image, top-card text, and the visible text grouped by profile section.
+The current foundation returns the requested URL and schema-valid null values. Later extraction tickets fill the name, headline, location, About text, profile image, experience, education, skills, certifications, and languages.
 
 ## Verify against a HAR
 
-The verifier reads response bodies without making network requests:
+The verifier reads response bodies and reports decoded Flight chunk counts. It does not make network requests:
 
 ```powershell
 bun run verify:har 'C:\path\to\capture.har'
