@@ -4,8 +4,21 @@ import { extractEducation } from "./linkedin/extract/education.ts";
 import { extractExperience } from "./linkedin/extract/experience.ts";
 import { extractIdentity } from "./linkedin/extract/identity.ts";
 import { extractLanguages } from "./linkedin/extract/languages.ts";
+import { extractSearchResults } from "./linkedin/extract/search.ts";
 import { extractSkills } from "./linkedin/extract/skills.ts";
-import { profileSchema, type Profile } from "./schema.ts";
+import { fetchProfileSearch } from "./linkedin/endpoints/search.ts";
+import {
+	createLinkedInHttp,
+	loadLinkedInConfig,
+	type LinkedInHttp,
+} from "./linkedin/http.ts";
+import {
+	profileSchema,
+	profileSearchQuerySchema,
+	profileSearchResponseSchema,
+	type Profile,
+	type ProfileSearchResponse,
+} from "./schema.ts";
 
 export async function getProfile(sourceUrl: string): Promise<Profile> {
 	const identity = extractIdentity(null);
@@ -24,4 +37,20 @@ export async function getProfile(sourceUrl: string): Promise<Profile> {
 	};
 
 	return profileSchema.parse(profile);
+}
+
+export async function searchProfiles(
+	query: string,
+	http?: LinkedInHttp,
+): Promise<ProfileSearchResponse> {
+	const normalizedQuery = profileSearchQuerySchema.parse(query);
+	const client = http ?? createLinkedInHttp(loadLinkedInConfig());
+	const payload = await fetchProfileSearch(client, normalizedQuery);
+	const results = extractSearchResults(payload);
+
+	return profileSearchResponseSchema.parse({
+		query: normalizedQuery,
+		count: results.length,
+		results,
+	});
 }

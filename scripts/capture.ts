@@ -1,7 +1,7 @@
 import {
 	fetchProfilePage,
 	fetchProfileSection,
-} from "../src/core/linkedin/endpoints.ts";
+} from "../src/core/linkedin/endpoints/profile.ts";
 import {
 	createLinkedInHttp,
 	loadLinkedInConfig,

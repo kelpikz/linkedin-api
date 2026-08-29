@@ -3,7 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 
 const targetFiles = [
 	"src/core/linkedin/http.ts",
-	"src/core/linkedin/endpoints.ts",
+	"src/core/linkedin/endpoints/profile.ts",
+	"src/core/linkedin/endpoints/search.ts",
 	"src/core/linkedin/flight/index.ts",
 	"src/core/linkedin/extract/identity.ts",
 	"src/core/linkedin/extract/about.ts",
@@ -12,6 +13,7 @@ const targetFiles = [
 	"src/core/linkedin/extract/skills.ts",
 	"src/core/linkedin/extract/certifications.ts",
 	"src/core/linkedin/extract/languages.ts",
+	"src/core/linkedin/extract/search.ts",
 	"src/core/schema.ts",
 	"src/core/cache.ts",
 	"src/core/errors.ts",

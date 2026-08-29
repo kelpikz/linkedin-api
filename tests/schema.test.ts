@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { profileSchema } from "../src/core/schema.ts";
+import {
+	profileSchema,
+	profileSearchQuerySchema,
+	profileSearchResponseSchema,
+} from "../src/core/schema.ts";
 
 const emptyProfile = {
 	sourceUrl: "https://www.linkedin.com/in/williamhgates/",
@@ -61,6 +65,36 @@ describe("profile schema", () => {
 			profileSchema.parse({
 				...emptyProfile,
 				profileImageUrl: "not-a-url",
+			}),
+		).toThrow();
+	});
+});
+
+describe("profile search schema", () => {
+	test("trims and validates a search query", () => {
+		expect(profileSearchQuerySchema.parse("  bill gates  ")).toBe("bill gates");
+		expect(() => profileSearchQuerySchema.parse("   ")).toThrow();
+		expect(() => profileSearchQuerySchema.parse("a".repeat(101))).toThrow();
+	});
+
+	test("accepts search results without profileId", () => {
+		const response = {
+			query: "satya nadella",
+			count: 1,
+			results: [
+				{
+					name: "Satya Nadella",
+					vanityName: "satyanadella",
+					url: "https://www.linkedin.com/in/satyanadella/",
+				},
+			],
+		};
+
+		expect(profileSearchResponseSchema.parse(response)).toEqual(response);
+		expect(() =>
+			profileSearchResponseSchema.parse({
+				...response,
+				results: [{ ...response.results[0], profileId: "unused" }],
 			}),
 		).toThrow();
 	});

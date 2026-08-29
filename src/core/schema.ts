@@ -63,9 +63,29 @@ export const profileSchema = z
 	})
 	.strict();
 
+export const profileSearchQuerySchema = z.string().trim().min(1).max(100);
+
+export const profileSearchResultSchema = z
+	.object({
+		name: z.string().min(1),
+		vanityName: z.string().min(1),
+		url: z.string().url(),
+	})
+	.strict();
+
+export const profileSearchResponseSchema = z
+	.object({
+		query: profileSearchQuerySchema,
+		count: z.number().int().nonnegative(),
+		results: z.array(profileSearchResultSchema),
+	})
+	.strict();
+
 export type Identity = z.infer<typeof identitySchema>;
 export type Experience = z.infer<typeof experienceSchema>;
 export type Education = z.infer<typeof educationSchema>;
 export type Certification = z.infer<typeof certificationSchema>;
 export type Language = z.infer<typeof languageSchema>;
 export type Profile = z.infer<typeof profileSchema>;
+export type ProfileSearchResult = z.infer<typeof profileSearchResultSchema>;
+export type ProfileSearchResponse = z.infer<typeof profileSearchResponseSchema>;

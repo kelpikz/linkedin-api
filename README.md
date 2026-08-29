@@ -16,7 +16,7 @@ LINKEDIN_COOKIE="cookie-name=value; JSESSIONID=\"ajax:example\"; another-cookie=
 
 `LINKEDIN_CSRF_TOKEN` is optional when the cookie contains `JSESSIONID`. The service derives the token from that cookie.
 
-The POC generates LinkedIn's per-request page and trace headers. `LINKEDIN_APPLICATION_INSTANCE` and `LINKEDIN_X_LI_TRACK` remain optional overrides if LinkedIn changes the values used by the current web build.
+The service generates LinkedIn's per-request page and trace headers. `LINKEDIN_APPLICATION_INSTANCE` and `LINKEDIN_X_LI_TRACK` remain optional overrides if LinkedIn changes the values used by the current web build.
 
 Never commit `.env`, HAR files, cookies, or CSRF values.
 
@@ -26,11 +26,22 @@ Never commit `.env`, HAR files, cookies, or CSRF values.
 bun run start
 ```
 
+Search for profiles:
+
+```powershell
+Invoke-RestMethod 'http://localhost:3000/api/search?q=bill%20gates'
+```
+
+Search returns each matching profile's name, vanity name, and LinkedIn URL. It
+makes one LinkedIn typeahead call and does not fetch the matching profiles.
+
 Request a profile:
 
 ```powershell
 Invoke-RestMethod 'http://localhost:3000/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fwilliamhgates%2F'
 ```
+
+Profile requests do not depend on search results or `profileId`.
 
 The current foundation returns the requested URL and schema-valid null values. Later extraction tickets fill the name, headline, location, About text, profile image, experience, education, skills, certifications, and languages.
 

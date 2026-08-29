@@ -1,10 +1,4 @@
-import type {
-	LinkedInEndpointRequest,
-	LinkedInHttp,
-	LinkedInPrefetchBody,
-} from "./http.ts";
-
-export type { LinkedInEndpointRequest } from "./http.ts";
+import type { LinkedInHttp, LinkedInPrefetchBody } from "../http.ts";
 
 function prefetchBody(payload: Record<string, unknown>): LinkedInPrefetchBody {
 	return {

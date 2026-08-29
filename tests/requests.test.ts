@@ -2,9 +2,12 @@ import { describe, expect, test } from "bun:test";
 import {
 	fetchProfilePage,
 	fetchProfileSection,
+} from "../src/core/linkedin/endpoints/profile.ts";
+import { fetchProfileSearch } from "../src/core/linkedin/endpoints/search.ts";
+import {
+	loadLinkedInConfig,
 	type LinkedInEndpointRequest,
-} from "../src/core/linkedin/endpoints.ts";
-import { loadLinkedInConfig } from "../src/core/linkedin/http.ts";
+} from "../src/core/linkedin/http.ts";
 
 function recordingHttp(response = "raw Flight text") {
 	const requests: LinkedInEndpointRequest[] = [];
@@ -49,6 +52,30 @@ describe("LinkedIn endpoints", () => {
 			isVanityNameResolved: true,
 			sectionType: "education",
 		});
+	});
+
+	test("builds one typeahead request for profile search", async () => {
+		const { http, requests } = recordingHttp();
+
+		await fetchProfileSearch(http, "bill gates");
+
+		expect(requests).toHaveLength(1);
+		const request = requests[0];
+		expect(request?.pageKey).toBe("d_flagship3_feed");
+		expect(request?.refererPath).toBe("/feed/");
+		const url = new URL(request?.path ?? "", "https://www.linkedin.com");
+		expect(url.pathname).toBe(
+			"/flagship-web/rsc-action/actions/server-request",
+		);
+		expect(url.searchParams.get("sduiid")).toBe(
+			"com.linkedin.sdui.search.requests.SearchGlobalTypeaheadRequestAction",
+		);
+		expect(url.searchParams.get("parentSpanId")).toBeTruthy();
+		expect(
+			request?.body.states?.find(
+				(state) => state.key === "SearchResultsGlobalTyahKeywordsBinding",
+			)?.value,
+		).toBe("bill gates");
 	});
 });
 

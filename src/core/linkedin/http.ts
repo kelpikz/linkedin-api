@@ -9,7 +9,22 @@ export interface LinkedInConfig {
 	userAgent: string;
 }
 
-export interface LinkedInPrefetchBody {
+export interface LinkedInRequestState {
+	key?: string;
+	value?: string | boolean;
+	[key: string]: unknown;
+}
+
+export interface LinkedInRequestBody {
+	requestedArguments: {
+		payload: Record<string, unknown>;
+		[key: string]: unknown;
+	};
+	states?: LinkedInRequestState[];
+	[key: string]: unknown;
+}
+
+export interface LinkedInPrefetchBody extends LinkedInRequestBody {
 	requestedArguments: {
 		payload: Record<string, unknown>;
 		states: unknown[];
@@ -24,7 +39,7 @@ export interface LinkedInEndpointRequest {
 	path: string;
 	pageKey: string;
 	refererPath: string;
-	body: LinkedInPrefetchBody;
+	body: LinkedInRequestBody;
 	extraHeaders?: Record<string, string>;
 }
 

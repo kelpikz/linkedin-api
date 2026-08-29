@@ -1,7 +1,17 @@
+/**
+ * React Flight streams encode server-rendered data as numbered chunks that can
+ * point to one another with `$L` references. This module parses those chunks,
+ * resolves their references, and walks rendered text. LinkedIn-specific rules
+ * belong in `../extract/`.
+ */
 export type ChunkMap = Map<string, unknown>;
 
 const REFERENCE_PATTERN = /^\$L?([0-9a-f]+)(?::(.+))?$/i;
 
+/**
+ * Reads newline-delimited Flight records into a map keyed by hexadecimal chunk
+ * ID. Module records, error records, and non-JSON records stay out of the map.
+ */
 export function parseRscChunks(payload: string): ChunkMap {
 	const chunks: ChunkMap = new Map();
 
@@ -24,6 +34,11 @@ export function parseRscChunks(payload: string): ChunkMap {
 	return chunks;
 }
 
+/**
+ * Follows the colon-delimited property path attached to a Flight reference.
+ * React element tuples store their props object at index 3, so `props` needs
+ * special handling instead of a normal object lookup.
+ */
 function resolvePath(value: unknown, path: string): unknown {
 	let current = value;
 	for (const part of path.split(":")) {
@@ -37,6 +52,10 @@ function resolvePath(value: unknown, path: string): unknown {
 	return current;
 }
 
+/**
+ * Replaces a `$1` or `$L1:props:children` string with the chunk or nested value
+ * it names. Values that are not Flight references pass through unchanged.
+ */
 export function resolveReference(value: unknown, chunks: ChunkMap): unknown {
 	if (typeof value !== "string") return value;
 	const match = value.match(REFERENCE_PATTERN);
@@ -45,6 +64,10 @@ export function resolveReference(value: unknown, chunks: ChunkMap): unknown {
 	return match[2] ? resolvePath(chunk, match[2]) : chunk;
 }
 
+/**
+ * Visits every value in an object or array tree. The shared `seen` set prevents
+ * cycles from sending the recursive walk into an infinite loop.
+ */
 export function walk(
 	value: unknown,
 	visit: (value: unknown) => void,
@@ -65,6 +88,11 @@ export function walk(
 	}
 }
 
+/**
+ * Converts one renderable Flight value into plain text. It follows references,
+ * reads children from React element tuples, and stops after 100 nested steps to
+ * protect against malformed reference chains.
+ */
 function flattenRenderedText(
 	value: unknown,
 	chunks: ChunkMap,
@@ -108,10 +136,18 @@ function flattenRenderedText(
 	return value.flatMap((item) => flattenRenderedText(item, chunks, depth + 1));
 }
 
+/**
+ * Collects the distinct text strings reachable from one Flight value. Each
+ * reference is visited once, and whitespace is normalized before deduplication.
+ */
 export function collectVisibleText(root: unknown, chunks: ChunkMap): string[] {
 	const found: string[] = [];
 	const visitedRefs = new Set<string>();
 
+	/**
+	 * Traverses the shapes that can own rendered children and sends each React
+	 * element's children to `flattenRenderedText`.
+	 */
 	function collect(value: unknown, depth = 0): void {
 		if (depth > 30 || value === null || value === undefined) return;
 		if (typeof value === "string" && REFERENCE_PATTERN.test(value)) {
