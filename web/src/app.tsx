@@ -1,6 +1,8 @@
 import {
 	ArrowRight,
 	ExternalLink,
+	Eye,
+	EyeOff,
 	LoaderCircle,
 	Search,
 	UserRoundSearch,
@@ -18,6 +20,15 @@ import { ProfileView } from "@/profile-view";
 /** Turns unknown request failures into one message suitable for the form. */
 function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : "The request failed. Try again.";
+}
+
+/** Reads the shared API key from a URL query string. */
+export function apiKeyFromSearch(search: string): string {
+	return new URLSearchParams(search).get("apiKey") ?? "";
+}
+
+function initialApiKey(): string {
+	return typeof window === "undefined" ? "" : apiKeyFromSearch(window.location.search);
 }
 
 interface ProfileSearchResultsProps {
@@ -76,7 +87,8 @@ export function ProfileSearchResults({
 }
 
 export function App() {
-	const [apiKey, setApiKey] = useState("");
+	const [apiKey, setApiKey] = useState(initialApiKey);
+	const [showApiKey, setShowApiKey] = useState(false);
 	const [lookupMode, setLookupMode] = useState<"search" | "url">("search");
 	const [query, setQuery] = useState("");
 	const [url, setUrl] = useState("");
@@ -218,17 +230,33 @@ export function App() {
 									<label className="text-sm font-semibold" htmlFor="api-key">
 										API key
 									</label>
-									<Input
-										className="mt-2.5"
-										id="api-key"
-										type="password"
-										value={apiKey}
-										onChange={(event) => setApiKey(event.target.value)}
-										autoComplete="off"
-										spellCheck={false}
-										disabled={busy}
-										required
-									/>
+									<div className="relative mt-2.5">
+										<Input
+											className="pr-12"
+											id="api-key"
+											type={showApiKey ? "text" : "password"}
+											value={apiKey}
+											onChange={(event) => setApiKey(event.target.value)}
+											autoComplete="off"
+											spellCheck={false}
+											disabled={busy}
+											required
+										/>
+										<button
+											className="absolute right-3 top-1/2 -translate-y-1/2 text-ink/45 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+											type="button"
+											onClick={() => setShowApiKey((visible) => !visible)}
+											aria-label={showApiKey ? "Hide API key" : "Show API key"}
+											aria-pressed={showApiKey}
+											disabled={busy}
+										>
+											{showApiKey ? (
+												<EyeOff className="size-5" aria-hidden="true" />
+											) : (
+												<Eye className="size-5" aria-hidden="true" />
+											)}
+										</button>
+									</div>
 									<p className="mt-2 text-xs leading-5 text-ink/45">
 										Kept in this page only and cleared when you refresh or close it.
 									</p>

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { App, ProfileSearchResults } from "../web/src/app.tsx";
+import { App, ProfileSearchResults, apiKeyFromSearch } from "../web/src/app.tsx";
 import {
 	loadProfile,
 	profileImageSource,
@@ -92,6 +92,27 @@ describe("frontend scaffold", () => {
 		expect(markup).toContain("API key");
 		expect(markup).toContain('type="password"');
 		expect(markup).toContain('autoComplete="off"');
+		expect(markup).toContain('aria-label="Show API key"');
+	});
+
+	test("seeds the API key from the apiKey query parameter", () => {
+		const previousWindow = globalThis.window;
+		Object.defineProperty(globalThis, "window", {
+			configurable: true,
+			value: { location: { search: "?apiKey=abc123" } },
+		});
+
+		try {
+			const markup = renderToStaticMarkup(<App />);
+
+			expect(apiKeyFromSearch("?apiKey=abc123")).toBe("abc123");
+			expect(markup).toContain('value="abc123"');
+		} finally {
+			Object.defineProperty(globalThis, "window", {
+				configurable: true,
+				value: previousWindow,
+			});
+		}
 	});
 
 	test("searches with the in-memory API key without fetching any result", async () => {
