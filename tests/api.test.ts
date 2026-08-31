@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createApp } from "../src/api/app.ts";
+import { parseApiKeys } from "../src/api/auth.ts";
 import {
 	profileSchema,
 	profileSearchResponseSchema,
@@ -36,7 +37,18 @@ const emptyProfile: Profile = {
 	},
 };
 
+const apiKey = "reviewer-key";
+const authorized = { headers: { authorization: `Bearer ${apiKey}` } };
+
 describe("API routes", () => {
+	test("reads trimmed non-empty keys from API_KEYS", () => {
+		expect(parseApiKeys(" first-key, , reviewer-key ,")).toEqual([
+			"first-key",
+			"reviewer-key",
+		]);
+		expect(parseApiKeys(undefined)).toEqual([]);
+	});
+
 	test("serves the built frontend and its assets", async () => {
 		const webRoot = mkdtempSync(join(tmpdir(), "tross-web-"));
 		mkdirSync(join(webRoot, "assets"));
@@ -60,26 +72,54 @@ describe("API routes", () => {
 	});
 
 	test("keeps unknown API routes as JSON errors", async () => {
-		const response = await createApp().request("/api/missing");
+		const response = await createApp({}, { apiKeys: [apiKey] }).request(
+			"/api/missing",
+			authorized,
+		);
 
 		expect(response.status).toBe(404);
 		expect(await response.json()).toEqual({ error: "Not found" });
+	});
+
+	test("requires a valid bearer token on every API route", async () => {
+		const app = createApp({}, { apiKeys: ["first-key", apiKey] });
+
+		for (const authorization of [
+			undefined,
+			"reviewer-key",
+			"Bearer wrong-key",
+			"Basic reviewer-key",
+		]) {
+			const response = await app.request("/api/missing", {
+				headers: authorization ? { authorization } : undefined,
+			});
+
+			expect(response.status).toBe(401);
+			expect(response.headers.get("www-authenticate")).toBe("Bearer");
+			expect(await response.json()).toEqual({ error: "Unauthorized" });
+		}
+
+		const response = await app.request("/api/missing", authorized);
+		expect(response.status).toBe(404);
 	});
 
 	test("proxies LinkedIn profile images through the API origin", async () => {
 		const source = "https://media.licdn.com/profile-displayphoto/image.jpg?sig=1";
 		const token = Buffer.from(source).toString("base64url");
 		const calls: string[] = [];
-		const app = createApp({
-			async fetchProfileImage(url: string): Promise<Response> {
-				calls.push(url);
-				return new Response("image bytes", {
-					headers: { "content-type": "image/jpeg" },
-				});
+		const app = createApp(
+			{
+				async fetchProfileImage(url: string): Promise<Response> {
+					calls.push(url);
+					return new Response("image bytes", {
+						headers: { "content-type": "image/jpeg" },
+					});
+				},
 			},
-		});
+			{ apiKeys: [apiKey] },
+		);
 
-		const response = await app.request(`/api/profile-image/${token}`);
+		const response = await app.request(`/profile-images/${token}`);
 
 		expect(response.status).toBe(200);
 		expect(response.headers.get("content-type")).toBe("image/jpeg");
@@ -94,14 +134,17 @@ describe("API routes", () => {
 		const source = "https://example.com/image.jpg";
 		const token = Buffer.from(source).toString("base64url");
 		let called = false;
-		const app = createApp({
-			async fetchProfileImage(): Promise<Response> {
-				called = true;
-				return new Response();
+		const app = createApp(
+			{
+				async fetchProfileImage(): Promise<Response> {
+					called = true;
+					return new Response();
+				},
 			},
-		});
+			{ apiKeys: [apiKey] },
+		);
 
-		const response = await app.request(`/api/profile-image/${token}`);
+		const response = await app.request(`/profile-images/${token}`);
 
 		expect(response.status).toBe(400);
 		expect(await response.json()).toEqual({ error: "Invalid profile image URL" });
@@ -109,14 +152,14 @@ describe("API routes", () => {
 	});
 
 	test("rejects an invalid search query", async () => {
-		const app = createApp();
+		const app = createApp({}, { apiKeys: [apiKey] });
 
 		for (const path of [
 			"/api/search",
 			"/api/search?q=%20%20%20",
 			`/api/search?q=${"a".repeat(101)}`,
 		]) {
-			const response = await app.request(path);
+			const response = await app.request(path, authorized);
 			expect(response.status).toBe(400);
 			expect(await response.json()).toEqual({
 				error: "q must contain between 1 and 100 characters",
@@ -138,14 +181,20 @@ describe("API routes", () => {
 				},
 			],
 		};
-		const app = createApp({
-			async searchProfiles(query: string): Promise<ProfileSearchResponse> {
-				calls.push(query);
-				return searchResponse;
+		const app = createApp(
+			{
+				async searchProfiles(query: string): Promise<ProfileSearchResponse> {
+					calls.push(query);
+					return searchResponse;
+				},
 			},
-		});
+			{ apiKeys: [apiKey] },
+		);
 
-		const response = await app.request("/api/search?q=%20satya%20nadella%20");
+		const response = await app.request(
+			"/api/search?q=%20satya%20nadella%20",
+			authorized,
+		);
 		const body = await response.json();
 
 		expect(response.status).toBe(200);
@@ -155,18 +204,16 @@ describe("API routes", () => {
 
 	test("reports health without loading LinkedIn credentials", async () => {
 		const response = await createApp().request("/health");
-		const body = (await response.json()) as {
-			ok: boolean;
-			authenticated: boolean;
-		};
 
 		expect(response.status).toBe(200);
-		expect(body.ok).toBe(true);
-		expect(typeof body.authenticated).toBe("boolean");
+		expect(await response.json()).toEqual({ ok: true });
 	});
 
 	test("rejects a missing profile URL", async () => {
-		const response = await createApp().request("/api/profile");
+		const response = await createApp({}, { apiKeys: [apiKey] }).request(
+			"/api/profile",
+			authorized,
+		);
 
 		expect(response.status).toBe(400);
 		expect(await response.json()).toEqual({ error: "url is required" });
@@ -174,15 +221,19 @@ describe("API routes", () => {
 
 	test("passes the URL to profile-service and returns its result", async () => {
 		const calls: string[] = [];
-		const app = createApp({
-			async getProfile(url: string): Promise<Profile> {
-				calls.push(url);
-				return emptyProfile;
+		const app = createApp(
+			{
+				async getProfile(url: string): Promise<Profile> {
+					calls.push(url);
+					return emptyProfile;
+				},
 			},
-		});
+			{ apiKeys: [apiKey] },
+		);
 
 		const response = await app.request(
 			"/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fwilliamhgates%2F",
+			authorized,
 		);
 		const body = await response.json();
 
@@ -194,8 +245,9 @@ describe("API routes", () => {
 	});
 
 	test("rejects an invalid profile URL before loading credentials", async () => {
-		const response = await createApp().request(
+		const response = await createApp({}, { apiKeys: [apiKey] }).request(
 			"/api/profile?url=https%3A%2F%2Fexample.com%2Fin%2Fsatyanadella%2F",
+			authorized,
 		);
 
 		expect(response.status).toBe(400);
@@ -206,15 +258,19 @@ describe("API routes", () => {
 
 	test("passes selected sections to profile-service", async () => {
 		const calls: unknown[] = [];
-		const app = createApp({
-			async getProfile(_url, options): Promise<Profile> {
-				calls.push(options);
-				return emptyProfile;
+		const app = createApp(
+			{
+				async getProfile(_url, options): Promise<Profile> {
+					calls.push(options);
+					return emptyProfile;
+				},
 			},
-		});
+			{ apiKeys: [apiKey] },
+		);
 
 		const response = await app.request(
 			"/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fsatyanadella%2F&sections=experience%2Ceducation%2Cexperience",
+			authorized,
 		);
 
 		expect(response.status).toBe(200);
@@ -222,8 +278,9 @@ describe("API routes", () => {
 	});
 
 	test("rejects an unknown section", async () => {
-		const response = await createApp().request(
+		const response = await createApp({}, { apiKeys: [apiKey] }).request(
 			"/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fsatyanadella%2F&sections=experience%2Cposts",
+			authorized,
 		);
 
 		expect(response.status).toBe(400);

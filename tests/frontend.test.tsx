@@ -65,6 +65,10 @@ describe("frontend scaffold", () => {
 				target: "http://localhost:3000",
 				changeOrigin: true,
 			},
+			"/profile-images": {
+				target: "http://localhost:3000",
+				changeOrigin: true,
+			},
 			"/health": {
 				target: "http://localhost:3000",
 				changeOrigin: true,
@@ -85,12 +89,15 @@ describe("frontend scaffold", () => {
 		expect(markup).toContain("Search by name");
 		expect(markup).toContain("Use profile URL");
 		expect(markup).toContain("Search LinkedIn profiles");
+		expect(markup).toContain("API key");
+		expect(markup).toContain('type="password"');
+		expect(markup).toContain('autoComplete="off"');
 	});
 
-	test("searches for profiles without fetching any result", async () => {
-		const calls: string[] = [];
-		const request = async (input: string | URL | Request) => {
-			calls.push(String(input));
+	test("searches with the in-memory API key without fetching any result", async () => {
+		const calls: Array<{ input: string; init?: RequestInit }> = [];
+		const request = async (input: string | URL | Request, init?: RequestInit) => {
+			calls.push({ input: String(input), init });
 			return Response.json({
 				query: "Satya Nadella",
 				count: 1,
@@ -105,10 +112,19 @@ describe("frontend scaffold", () => {
 			});
 		};
 
-		const result = await searchProfiles("  Satya Nadella  ", request);
+		const result = await searchProfiles(
+			"  Satya Nadella  ",
+			"reviewer-key",
+			request,
+		);
 
 		expect(result.results[0]?.url).toBe(profile.sourceUrl);
-		expect(calls).toEqual(["/api/search?q=Satya%20Nadella"]);
+		expect(calls).toEqual([
+			{
+				input: "/api/search?q=Satya%20Nadella",
+				init: { headers: { authorization: "Bearer reviewer-key" } },
+			},
+		]);
 	});
 
 	test("renders profile images in search results", () => {
@@ -132,7 +148,7 @@ describe("frontend scaffold", () => {
 			/>,
 		);
 
-		expect(imageSource).toStartWith("/api/profile-image/");
+		expect(imageSource).toStartWith("/profile-images/");
 		expect(imageSource).not.toContain("linkedin.com");
 		expect(markup).toContain(`src="${imageSource}"`);
 		expect(markup).toContain('alt="Satya Nadella"');
@@ -145,23 +161,27 @@ describe("frontend scaffold", () => {
 				{ status: 400 },
 			);
 
-		expect(searchProfiles("", request)).rejects.toThrow(
+		expect(searchProfiles("", "reviewer-key", request)).rejects.toThrow(
 			"q must contain between 1 and 100 characters",
 		);
 	});
 
 	test("loads a selected profile without a search hop", async () => {
-		const calls: string[] = [];
-		const request = async (input: string | URL | Request) => {
-			calls.push(String(input));
+		const calls: Array<{ input: string; init?: RequestInit }> = [];
+		const request = async (input: string | URL | Request, init?: RequestInit) => {
+			calls.push({ input: String(input), init });
 			return Response.json(profile);
 		};
 
-		const result = await loadProfile(profile.sourceUrl, request);
+		const result = await loadProfile(profile.sourceUrl, "reviewer-key", request);
 
 		expect(result.name).toBe("Satya Nadella");
 		expect(calls).toEqual([
-			"/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fsatyanadella%2F",
+			{
+				input:
+					"/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fsatyanadella%2F",
+				init: { headers: { authorization: "Bearer reviewer-key" } },
+			},
 		]);
 	});
 
@@ -172,9 +192,9 @@ describe("frontend scaffold", () => {
 				{ status: 400 },
 			);
 
-		expect(loadProfile("https://example.com/profile", request)).rejects.toThrow(
-			"url must be a LinkedIn profile URL",
-		);
+		expect(
+			loadProfile("https://example.com/profile", "reviewer-key", request),
+		).rejects.toThrow("url must be a LinkedIn profile URL");
 	});
 
 	test("renders returned sections and reports missing ones", () => {

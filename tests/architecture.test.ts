@@ -21,6 +21,7 @@ const targetFiles = [
 	"src/core/cache.ts",
 	"src/core/errors.ts",
 	"src/core/profile-service.ts",
+	"src/api/auth.ts",
 	"src/api/app.ts",
 	"src/api/index.ts",
 	"src/mcp/index.ts",

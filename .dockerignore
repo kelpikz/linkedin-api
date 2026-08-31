@@ -1,0 +1,9 @@
+.git
+.env
+*.har
+node_modules
+dist
+docs
+fixtures
+tests
+instructions

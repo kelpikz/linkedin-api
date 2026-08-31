@@ -13,6 +13,7 @@ import {
 	type ProfileDetailSection,
 	type ProfileSearchResponse,
 } from "../core/schema.ts";
+import { bearerAuth, parseApiKeys } from "./auth.ts";
 
 interface AppDependencies {
 	getProfile(url: string, options?: GetProfileOptions): Promise<Profile>;
@@ -22,6 +23,7 @@ interface AppDependencies {
 
 interface AppOptions {
 	webRoot?: string;
+	apiKeys?: readonly string[];
 }
 
 /** Fetches one signed LinkedIn media URL without following it to another host. */
@@ -79,19 +81,15 @@ export function createApp(
 	const app = new Hono();
 	const dependencies = { ...defaultDependencies, ...overrides };
 	const webRoot = options.webRoot ?? "./dist/web";
+	const apiKeys = options.apiKeys ?? parseApiKeys(Bun.env.API_KEYS);
 
 	app.get("/assets/*", serveStatic({ root: webRoot }));
 	app.get("/favicon.svg", serveStatic({ root: webRoot }));
 	app.get("/", serveStatic({ root: webRoot, path: "index.html" }));
 
-	app.get("/health", (context) =>
-		context.json({
-			ok: true,
-			authenticated: Boolean(Bun.env.LINKEDIN_COOKIE),
-		}),
-	);
+	app.get("/health", (context) => context.json({ ok: true }));
 
-	app.get("/api/profile-image/:source", async (context) => {
+	app.get("/profile-images/:source", async (context) => {
 		const source = profileImageUrl(context.req.param("source"));
 		if (!source) {
 			return context.json({ error: "Invalid profile image URL" }, 400);
@@ -115,6 +113,8 @@ export function createApp(
 			return context.json({ error: "Profile image is unavailable" }, 502);
 		}
 	});
+
+	app.use("/api/*", bearerAuth(apiKeys));
 
 	app.get("/api/search", async (context) => {
 		const query = profileSearchQuerySchema.safeParse(context.req.query("q"));

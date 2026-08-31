@@ -1,0 +1,30 @@
+# The app reads every secret from .env, which stays on the server and is never
+# committed. LINKEDIN_PROXY_URL is optional and travels through the same file.
+services:
+  app:
+    build: .
+    env_file:
+      - .env
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # A hostname turns on automatic TLS. The default serves plain HTTP locally.
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:

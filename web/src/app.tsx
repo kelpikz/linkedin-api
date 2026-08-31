@@ -76,6 +76,7 @@ export function ProfileSearchResults({
 }
 
 export function App() {
+	const [apiKey, setApiKey] = useState("");
 	const [lookupMode, setLookupMode] = useState<"search" | "url">("search");
 	const [query, setQuery] = useState("");
 	const [url, setUrl] = useState("");
@@ -89,10 +90,16 @@ export function App() {
 
 	/** Loads details only after the user chooses a result or submits a URL. */
 	async function openProfile(profileUrl: string) {
+		const key = apiKey.trim();
+		if (!key) {
+			setError("Enter the API key.");
+			return;
+		}
+
 		setLoadingProfile(true);
 		setError(null);
 		try {
-			setProfile(await loadProfile(profileUrl));
+			setProfile(await loadProfile(profileUrl, key));
 		} catch (requestError) {
 			setError(errorMessage(requestError));
 		} finally {
@@ -103,6 +110,11 @@ export function App() {
 	/** Searches for matches without making any profile-detail calls. */
 	async function submitSearch(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
+		const key = apiKey.trim();
+		if (!key) {
+			setError("Enter the API key.");
+			return;
+		}
 		const value = query.trim();
 		if (!value) {
 			setError("Enter a name to search.");
@@ -113,7 +125,7 @@ export function App() {
 		setError(null);
 		setSearchResponse(null);
 		try {
-			setSearchResponse(await searchProfiles(value));
+			setSearchResponse(await searchProfiles(value, key));
 		} catch (requestError) {
 			setError(errorMessage(requestError));
 		} finally {
@@ -202,6 +214,25 @@ export function App() {
 								onSubmit={lookupMode === "search" ? submitSearch : submitUrl}
 								aria-busy={busy}
 							>
+								<div className="mb-4">
+									<label className="text-sm font-semibold" htmlFor="api-key">
+										API key
+									</label>
+									<Input
+										className="mt-2.5"
+										id="api-key"
+										type="password"
+										value={apiKey}
+										onChange={(event) => setApiKey(event.target.value)}
+										autoComplete="off"
+										spellCheck={false}
+										disabled={busy}
+										required
+									/>
+									<p className="mt-2 text-xs leading-5 text-ink/45">
+										Kept in this page only and cleared when you refresh or close it.
+									</p>
+								</div>
 								<label className="text-sm font-semibold" htmlFor="profile-lookup">
 									{lookupMode === "search"
 										? "Search LinkedIn profiles"
