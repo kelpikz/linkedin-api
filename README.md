@@ -2,93 +2,169 @@
 
 This Bun and TypeScript service accepts a LinkedIn profile URL and returns structured JSON. It calls LinkedIn's private web endpoints with a personal session cookie. LinkedIn can change these endpoints without notice.
 
+Live deployment: [https://ajitha.fyi](https://ajitha.fyi)
+
+Source code: [github.com/kelpikz/linkedin-api](https://github.com/kelpikz/linkedin-api)
+
+## Requirements
+- Public HTTPS deployment at [https://ajitha.fyi](https://ajitha.fyi)
+- A profile endpoint that accepts a LinkedIn profile URL
+- Structured profile data for name, headline, location, About, experience,
+  education, skills, certifications, languages, and profile images when available
+- Backend use of a personal LinkedIn session, without exposing it to clients
+- Public source code at [github.com/kelpikz/linkedin-api](https://github.com/kelpikz/linkedin-api)
+- Setup, API, approach, and limitation documentation in this README
+- No credentials or secrets in the repository
+
+## Tech stack
+- **Bun** and **TypeScript**
+- **Hono** for the HTTP API
+- **React**, **Vite**, and **Tailwind CSS** for the web app
+- **Zod** for the shared response contract
+- **Docker Compose** and **Caddy** for deployment and automatic TLS
+- LinkedIn's private web endpoints and **Flight/RSC** payloads
+
 ## Setup
 
-Copy `.env.example` to `.env`, then add the Cookie header from a signed-in `linkedin.com` request. Wrap the value in quotes so semicolons remain part of the value:
+Local setup needs Bun and a signed-in LinkedIn browser session. Docker setup also
+needs Docker Compose. Clone the repository and install dependencies:
 
-```powershell
-Copy-Item .env.example .env
+```bash
+git clone https://github.com/kelpikz/linkedin-api.git
+cd linkedin-api
+bun install
+cp .env.example .env
 ```
+
+Set the full `Cookie` request header copied from a signed-in `linkedin.com`
+request. Keep semicolons inside the quoted value. Set one or more private API
+keys in `API_KEYS`:
 
 ```dotenv
 LINKEDIN_COOKIE="cookie-name=value; JSESSIONID=\"ajax:example\"; another-cookie=value"
+API_KEYS=$LINKEDIN_API_KEY
 ```
 
-`LINKEDIN_CSRF_TOKEN` is optional when the cookie contains `JSESSIONID`. The service derives the token from that cookie.
+`LINKEDIN_CSRF_TOKEN` is optional when the cookie contains `JSESSIONID`. The
+service derives it from that cookie. The other LinkedIn header values in
+`.env.example` are optional overrides for changes in LinkedIn's web client.
 
-The service generates LinkedIn's per-request page and trace headers. `LINKEDIN_APPLICATION_INSTANCE` and `LINKEDIN_X_LI_TRACK` remain optional overrides if LinkedIn changes the values used by the current web build.
+Run locally:
 
-Never commit `.env`, HAR files, cookies, or CSRF values.
-
-## Run
-
-```powershell
+```bash
+bun run build
 bun run start
 ```
 
-Search for profiles:
+The local service listens on `http://localhost:3000`.
 
-```powershell
-Invoke-RestMethod 'http://localhost:3000/api/search?q=bill%20gates'
+For the HTTPS deployment, point the domain's DNS records at the server, set
+`SITE_ADDRESS` in `.env`, and allow inbound TCP ports 80 and 443:
+
+```dotenv
+SITE_ADDRESS=ajitha.fyi
 ```
 
-Search returns each matching profile's name, vanity name, LinkedIn URL, and
-profile image when LinkedIn supplies one. It makes one LinkedIn typeahead call
-and does not fetch the matching profiles.
+Start the app and Caddy with:
 
-The web app loads LinkedIn profile images through its own `/api/profile-image/`
-route. This avoids browser extensions blocking the CDN as a third-party request.
-
-Request a profile:
-
-```powershell
-Invoke-RestMethod 'http://localhost:3000/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fwilliamhgates%2F'
+```bash
+docker compose up -d --build
+curl https://ajitha.fyi/health
 ```
 
-Profile requests do not depend on search results or `profileId`.
+Caddy obtains and renews the TLS certificate when `SITE_ADDRESS` is a hostname.
+Use `SITE_ADDRESS=:80` only for a local plain-HTTP Compose run.
 
-By default, a request fetches identity, About, experience, education, skills,
-certifications, and languages. Use `sections` to limit the upstream calls:
+Never commit `.env`, cookies, CSRF tokens, API keys, HAR files, or captured raw
+payloads.
 
-```powershell
-Invoke-RestMethod 'http://localhost:3000/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fwilliamhgates%2F&sections=experience,education'
+## Architecture
+
+```text
+Browser or API client
+        |
+        v
+Hono API + bearer auth
+   |-- /api/search ------------> LinkedIn typeahead
+   |-- /api/profile -----------> profile-service
+   `-- /profile-images/:token -> same-origin image proxy
+                                  |
+                                  v
+                         LinkedIn profile endpoints
+                                  |
+                                  v
+                       Flight decoder + extractors
+                                  |
+                                  v
+                          shared Zod schema -> JSON
 ```
 
-The response includes `meta.extracted` and `meta.missing`. An empty array means
-LinkedIn returned a recognized empty section. A section is `null` and appears in
-`meta.missing` when its request fails or its current payload cannot be recognized.
+## API
 
-## Known limitations
+The deployed base URL is `https://ajitha.fyi`. Local examples use
+`http://localhost:3000`. All `/api/*` routes require:
 
-- LinkedIn's web endpoints and Flight component shapes are undocumented and can
-  change without notice.
-- A default uncached profile request makes about ten upstream calls. The service
-  caps concurrency at four and lets one failed section return as missing without
-  failing the rest of the profile.
-- Skills and languages come from `details/skills/` and `details/languages/`.
-  Their initial responses contain pagers rather than the complete rows, so the
-  service follows every `nextPageRequest` until LinkedIn returns no next page.
-  The corresponding profile-card components are previews and are incomplete.
-- The profile image comes from the authenticated profile HTML's high-priority
-  image tag. The profile Flight payload also contains unrelated member images.
-- The previously failing volunteering route is
-  `details/volunteering-experiences/`. Volunteering is not part of the current
-  public response schema.
-- A LinkedIn login or challenge page means the personal session cookie must be
-  refreshed.
-
-## Verify against a HAR
-
-The verifier reads response bodies and reports decoded Flight chunk counts. It does not make network requests:
-
-```powershell
-bun run verify:har 'C:\path\to\capture.har'
+```http
+Authorization: Bearer $LINKEDIN_API_KEY
 ```
+
+| Endpoint | Parameters | Returns |
+| --- | --- | --- |
+| `GET /health` | None | `{"ok":true}` |
+| `GET /api/search` | `q`, 1 to 100 characters | Matching names, vanity names, URLs, and images. One typeahead request only. |
+| `GET /api/profile` | `url`; optional `sections` | Normalized profile JSON. Sections are `experience`, `education`, `skills`, `certifications`, and `languages`. |
+| `GET /profile-images/:token` | Image URL token | Same-origin image proxy used by the web app. |
+
+Examples:
+
+```bash
+curl 'https://ajitha.fyi/api/search?q=bill%20gates' \
+  --header "Authorization: Bearer $LINKEDIN_API_KEY"
+
+curl 'https://ajitha.fyi/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fwilliamhgates%2F&sections=experience,education' \
+  --header "Authorization: Bearer $LINKEDIN_API_KEY"
+```
+
+The profile JSON contains `sourceUrl`, identity and About fields, profile image,
+the five detail collections, and `meta.extracted` / `meta.missing`. Detail rows
+are typed in `src/core/schema.ts`. Recognized empty collections are `[]`.
+Unavailable requested sections are `null` and appear in `meta.missing`.
+
+API errors use `400` for invalid input, `401` for missing or invalid bearer
+tokens, `404` for unknown routes, and `502` when an image cannot be proxied.
+
+## Approach
+
+The implementation works in these steps:
+
+- Parse the submitted LinkedIn URL and use its `vanityName` for upstream calls.
+- Fetch the profile page, authenticated HTML, and selected detail endpoints.
+- Limit concurrent LinkedIn requests to four and isolate section failures.
+- Decode Flight/RSC payloads with a generic decoder.
+- Run section extractors and validate the result with the shared Zod schema.
+- Follow `nextPageRequest` for skills and languages, with loop detection and a
+  100-page safety limit.
+- Prefer the high-priority HTML profile image and use Flight data as a fallback.
+
+## Limitations
+
+- LinkedIn's private endpoints and payloads can change without notice.
+- The backend needs a current personal LinkedIn session cookie. Login or
+  challenge HTML means the cookie must be refreshed.
+- A default uncached profile request makes about ten upstream calls. Skills and
+  languages can add paginated calls.
+- Profile visibility and the signed-in account affect the returned fields.
+- Missing requested sections appear as `null` and in `meta.missing`.
+- Volunteering is not in the public response schema. The working LinkedIn route
+  is `details/volunteering-experiences/`.
+- There is no persistent cache or rate-limit store yet. The service does not
+  speculatively fetch unrequested sections.
 
 ## Tests
 
-```powershell
+```bash
 bun test
+bun run typecheck
 ```
 
 If LinkedIn returns a login or challenge page, refresh `LINKEDIN_COOKIE`. If the request structure changes, capture a current request and update `LINKEDIN_APP_VERSION` or the request builders.
