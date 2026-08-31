@@ -49,6 +49,10 @@ Target layout and reasoning are in `docs/adr/adr-0001-shared-core-with-three-sur
 - `core` never imports from `api`, `mcp`, or `web`.
 - `api`, `mcp`, and `web` all call `profile-service.getProfile()`. Do not
   reimplement fetching or parsing inside one of them.
+- The web app supports name search and direct URL lookup. A name search calls
+  only the search endpoint; fetch profile details after the user selects a result.
+  Render the search result's profile image when LinkedIn returns one. Send profile
+  images through the same-origin image route because clients can block the CDN.
 - `src/core/schema.ts` is the single response contract. Types, MCP tool schemas,
   and the README API docs derive from it. Change it there, not in the consumers.
 - Extractors return their section or `null`, and never throw. Missing sections go

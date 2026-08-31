@@ -93,6 +93,7 @@ export const profileSearchResultSchema = z
 		name: z.string().min(1),
 		vanityName: z.string().min(1),
 		url: z.string().url(),
+		profileImageUrl: nullableUrl,
 	})
 	.strict();
 

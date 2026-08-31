@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { serveStatic } from "hono/bun";
 import { InvalidProfileUrlError } from "../core/errors.ts";
 import {
 	getProfile,
@@ -16,9 +17,41 @@ import {
 interface AppDependencies {
 	getProfile(url: string, options?: GetProfileOptions): Promise<Profile>;
 	searchProfiles(query: string): Promise<ProfileSearchResponse>;
+	fetchProfileImage(url: string): Promise<Response>;
 }
 
-const defaultDependencies: AppDependencies = { getProfile, searchProfiles };
+interface AppOptions {
+	webRoot?: string;
+}
+
+/** Fetches one signed LinkedIn media URL without following it to another host. */
+function fetchProfileImage(url: string): Promise<Response> {
+	return fetch(url, {
+		redirect: "error",
+		headers: {
+			accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+		},
+	});
+}
+
+const defaultDependencies: AppDependencies = {
+	getProfile,
+	searchProfiles,
+	fetchProfileImage,
+};
+
+/** Decodes and restricts an image token to LinkedIn's media CDN. */
+function profileImageUrl(token: string): string | null {
+	try {
+		const value = Buffer.from(token, "base64url").toString("utf8");
+		const url = new URL(value);
+		return url.protocol === "https:" && url.hostname === "media.licdn.com"
+			? url.href
+			: null;
+	} catch {
+		return null;
+	}
+}
 
 /** Parses and deduplicates the optional comma-separated detail section list. */
 function requestedSections(value: string | undefined):
@@ -41,20 +74,15 @@ function requestedSections(value: string | undefined):
 
 export function createApp(
 	overrides: Partial<AppDependencies> = {},
+	options: AppOptions = {},
 ): Hono {
 	const app = new Hono();
 	const dependencies = { ...defaultDependencies, ...overrides };
+	const webRoot = options.webRoot ?? "./dist/web";
 
-	app.get("/", (context) =>
-		context.json({
-			name: "LinkedIn profile API",
-			routes: {
-				profile: "GET /api/profile?url=...",
-				search: "GET /api/search?q=...",
-				health: "GET /health",
-			},
-		}),
-	);
+	app.get("/assets/*", serveStatic({ root: webRoot }));
+	app.get("/favicon.svg", serveStatic({ root: webRoot }));
+	app.get("/", serveStatic({ root: webRoot, path: "index.html" }));
 
 	app.get("/health", (context) =>
 		context.json({
@@ -62,6 +90,31 @@ export function createApp(
 			authenticated: Boolean(Bun.env.LINKEDIN_COOKIE),
 		}),
 	);
+
+	app.get("/api/profile-image/:source", async (context) => {
+		const source = profileImageUrl(context.req.param("source"));
+		if (!source) {
+			return context.json({ error: "Invalid profile image URL" }, 400);
+		}
+
+		try {
+			const image = await dependencies.fetchProfileImage(source);
+			const contentType = image.headers.get("content-type");
+			if (!image.ok || !image.body || !contentType?.startsWith("image/")) {
+				return context.json({ error: "Profile image is unavailable" }, 502);
+			}
+
+			return new Response(image.body, {
+				headers: {
+					"cache-control": "public, max-age=3600",
+					"content-type": contentType,
+					"x-content-type-options": "nosniff",
+				},
+			});
+		} catch {
+			return context.json({ error: "Profile image is unavailable" }, 502);
+		}
+	});
 
 	app.get("/api/search", async (context) => {
 		const query = profileSearchQuerySchema.safeParse(context.req.query("q"));

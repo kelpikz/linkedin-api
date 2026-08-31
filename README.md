@@ -32,8 +32,12 @@ Search for profiles:
 Invoke-RestMethod 'http://localhost:3000/api/search?q=bill%20gates'
 ```
 
-Search returns each matching profile's name, vanity name, and LinkedIn URL. It
-makes one LinkedIn typeahead call and does not fetch the matching profiles.
+Search returns each matching profile's name, vanity name, LinkedIn URL, and
+profile image when LinkedIn supplies one. It makes one LinkedIn typeahead call
+and does not fetch the matching profiles.
+
+The web app loads LinkedIn profile images through its own `/api/profile-image/`
+route. This avoids browser extensions blocking the CDN as a third-party request.
 
 Request a profile:
 

@@ -99,6 +99,7 @@ describe("profile search schema", () => {
 					name: "Satya Nadella",
 					vanityName: "satyanadella",
 					url: "https://www.linkedin.com/in/satyanadella/",
+					profileImageUrl: "https://media.licdn.com/satya-profile.jpg",
 				},
 			],
 		};
@@ -108,6 +109,12 @@ describe("profile search schema", () => {
 			profileSearchResponseSchema.parse({
 				...response,
 				results: [{ ...response.results[0], profileId: "unused" }],
+			}),
+		).toThrow();
+		expect(() =>
+			profileSearchResponseSchema.parse({
+				...response,
+				results: [{ ...response.results[0], profileImageUrl: "not-a-url" }],
 			}),
 		).toThrow();
 	});

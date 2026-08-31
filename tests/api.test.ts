@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createApp } from "../src/api/app.ts";
 import {
 	profileSchema,
@@ -34,18 +37,75 @@ const emptyProfile: Profile = {
 };
 
 describe("API routes", () => {
-	test("describes the service", async () => {
-		const response = await createApp().request("/");
+	test("serves the built frontend and its assets", async () => {
+		const webRoot = mkdtempSync(join(tmpdir(), "tross-web-"));
+		mkdirSync(join(webRoot, "assets"));
+		writeFileSync(join(webRoot, "index.html"), "<main>Profile viewer</main>");
+		writeFileSync(join(webRoot, "assets", "app.js"), "export {};\n");
 
-		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({
-			name: "LinkedIn profile API",
-			routes: {
-				profile: "GET /api/profile?url=...",
-				search: "GET /api/search?q=...",
-				health: "GET /health",
+		try {
+			const app = createApp({}, { webRoot });
+			const page = await app.request("/");
+			const asset = await app.request("/assets/app.js");
+
+			expect(page.status).toBe(200);
+			expect(page.headers.get("content-type")).toContain("text/html");
+			expect(await page.text()).toContain("Profile viewer");
+			expect(asset.status).toBe(200);
+			expect(asset.headers.get("content-type")).toContain("javascript");
+			expect(await asset.text()).toBe("export {};\n");
+		} finally {
+			rmSync(webRoot, { recursive: true, force: true });
+		}
+	});
+
+	test("keeps unknown API routes as JSON errors", async () => {
+		const response = await createApp().request("/api/missing");
+
+		expect(response.status).toBe(404);
+		expect(await response.json()).toEqual({ error: "Not found" });
+	});
+
+	test("proxies LinkedIn profile images through the API origin", async () => {
+		const source = "https://media.licdn.com/profile-displayphoto/image.jpg?sig=1";
+		const token = Buffer.from(source).toString("base64url");
+		const calls: string[] = [];
+		const app = createApp({
+			async fetchProfileImage(url: string): Promise<Response> {
+				calls.push(url);
+				return new Response("image bytes", {
+					headers: { "content-type": "image/jpeg" },
+				});
 			},
 		});
+
+		const response = await app.request(`/api/profile-image/${token}`);
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("content-type")).toBe("image/jpeg");
+		expect(response.headers.get("cache-control")).toBe(
+			"public, max-age=3600",
+		);
+		expect(await response.text()).toBe("image bytes");
+		expect(calls).toEqual([source]);
+	});
+
+	test("rejects non-LinkedIn image proxy targets", async () => {
+		const source = "https://example.com/image.jpg";
+		const token = Buffer.from(source).toString("base64url");
+		let called = false;
+		const app = createApp({
+			async fetchProfileImage(): Promise<Response> {
+				called = true;
+				return new Response();
+			},
+		});
+
+		const response = await app.request(`/api/profile-image/${token}`);
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({ error: "Invalid profile image URL" });
+		expect(called).toBe(false);
 	});
 
 	test("rejects an invalid search query", async () => {
@@ -74,6 +134,7 @@ describe("API routes", () => {
 					name: "Satya Nadella",
 					vanityName: "satyanadella",
 					url: "https://www.linkedin.com/in/satyanadella/",
+					profileImageUrl: "https://media.licdn.com/satya-profile.jpg",
 				},
 			],
 		};

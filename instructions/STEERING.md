@@ -23,6 +23,17 @@ Delete entries that stop being true. A log nobody trusts gets skipped.
 
 ---
 
+## 2026-08-31 Keep profile discovery in the frontend
+
+Built the profile page with direct URL lookup only, even though the profile
+search API already existed. The first search list also replaced returned profile
+images with initials. Direct CDN image URLs were then blocked by the browser.
+
+**Rule:** The frontend supports name search and direct URL lookup. Name search
+must not fetch profile details until the user selects a result. Render its
+profile image through the same-origin image route when search returns one.
+Already in `../AGENTS.md`.
+
 ## 2026-08-29 Never commit automatically
 
 Ajitha clarified that agents must stop after staging changes and request review.
@@ -35,10 +46,9 @@ past approval does not apply to later changes. Already in `../AGENTS.md`.
 Wrote several replies in default assistant voice. Ajitha invoked `/unslop` three
 times in one session, twice asking for the same answer again.
 
-**Rule:** The unslop style is the default for everything a human reads, including
-chat replies, commit messages, and any markdown in this repo. Do not wait to be
-asked. The global instruction to use Simplified Technical English in documents
-applies on top of it.
+**Rule:** Invoke the `unslop` skill before writing anything a human reads. Do not
+wait to be asked, and do not write from memory of the style. Simplified Technical
+English applies on top of it. Already in `../AGENTS.md`.
 
 ## 2026-08-29 Set up the full module layout before writing features
 

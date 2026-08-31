@@ -24,7 +24,17 @@ const targetFiles = [
 	"src/api/app.ts",
 	"src/api/index.ts",
 	"src/mcp/index.ts",
-	"web/.gitkeep",
+	"web/index.html",
+	"web/vite.config.ts",
+	"web/components.json",
+	"web/src/main.tsx",
+	"web/src/app.tsx",
+	"web/src/api.ts",
+	"web/src/profile-view.tsx",
+	"web/src/index.css",
+	"web/src/lib/utils.ts",
+	"web/src/components/ui/button.tsx",
+	"web/src/components/ui/input.tsx",
 ];
 
 describe("module layout", () => {
@@ -36,6 +46,7 @@ describe("module layout", () => {
 		}
 		expect(existsSync("src/server.ts")).toBe(false);
 		expect(existsSync("src/linkedin/client.ts")).toBe(false);
+		expect(existsSync("web/tsconfig.json")).toBe(false);
 	});
 
 	test("keeps LinkedIn internals behind profile-service", async () => {

@@ -4,7 +4,7 @@ import { extractSearchResults } from "../src/core/linkedin/extract/search.ts";
 import { searchProfiles } from "../src/core/profile-service.ts";
 
 const searchPayload = [
-	'1:["$","div",null,{"action":{"payload":{"vanityName":"satyanadella","searchTerm":"Satya Nadella","vieweeProfileId":"abc123"}}}]',
+	'1:["$","div",null,{"image":["$","$L50",null,{"renderPayload":{"rootUrl":"https://media.licdn.com/profile-displayphoto-shrink_","imageRenditions":[{"width":100,"height":100,"suffixUrl":"small.jpg"},{"width":400,"height":400,"suffixUrl":"large.jpg"}]}}],"action":{"payload":{"vanityName":"satyanadella","searchTerm":"Satya Nadella","vieweeProfileId":"abc123"}}}]',
 	'2:["$","div",null,{"duplicate":{"payload":{"vanityName":"satyanadella","searchTerm":"Satya Nadella","vieweeProfileId":"different-id"}}}]',
 ].join("\n");
 
@@ -15,6 +15,22 @@ describe("profile search extraction", () => {
 				name: "Satya Nadella",
 				vanityName: "satyanadella",
 				url: "https://www.linkedin.com/in/satyanadella/",
+				profileImageUrl:
+					"https://media.licdn.com/profile-displayphoto-shrink_large.jpg",
+			},
+		]);
+	});
+
+	test("keeps a result when LinkedIn omits its profile image", () => {
+		const payload =
+			'1:["$","div",null,{"action":{"payload":{"vanityName":"williamhgates","searchTerm":"Bill Gates"}}}]';
+
+		expect(extractSearchResults(payload)).toEqual([
+			{
+				name: "Bill Gates",
+				vanityName: "williamhgates",
+				url: "https://www.linkedin.com/in/williamhgates/",
+				profileImageUrl: null,
 			},
 		]);
 	});
@@ -40,6 +56,8 @@ describe("profile search service", () => {
 					name: "Satya Nadella",
 					vanityName: "satyanadella",
 					url: "https://www.linkedin.com/in/satyanadella/",
+					profileImageUrl:
+						"https://media.licdn.com/profile-displayphoto-shrink_large.jpg",
 				},
 			],
 		});
