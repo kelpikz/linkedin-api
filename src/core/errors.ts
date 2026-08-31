@@ -19,3 +19,10 @@ export class LinkedInRequestError extends Error {
 		this.name = "LinkedInRequestError";
 	}
 }
+
+export class InvalidProfileUrlError extends Error {
+	constructor(message = "url must be a LinkedIn profile URL") {
+		super(message);
+		this.name = "InvalidProfileUrlError";
+	}
+}

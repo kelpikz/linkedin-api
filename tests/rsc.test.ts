@@ -33,4 +33,17 @@ describe("Flight decoder", () => {
 			"Chairman and Chief Executive Officer at Microsoft.",
 		]);
 	});
+
+	test("follows initial content references on React elements", () => {
+		const chunks = parseRscChunks(
+			[
+				'1:["$","section",null,{"initialContent":"$L2"}]',
+				'2:["$","p",null,{"children":["Loaded later"]}]',
+			].join("\n"),
+		);
+
+		expect(collectVisibleText(chunks.get("1"), chunks)).toEqual([
+			"Loaded later",
+		]);
+	});
 });

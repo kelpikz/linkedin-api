@@ -7,6 +7,7 @@ import { fetchProfileSearch } from "../src/core/linkedin/endpoints/search.ts";
 import {
 	loadLinkedInConfig,
 	type LinkedInEndpointRequest,
+	type LinkedInRequestBody,
 } from "../src/core/linkedin/http.ts";
 
 function recordingHttp(response = "raw Flight text") {
@@ -22,6 +23,15 @@ function recordingHttp(response = "raw Flight text") {
 	};
 }
 
+function standardBody(
+	request: LinkedInEndpointRequest | undefined,
+): LinkedInRequestBody {
+	if (!request || !("requestedArguments" in request.body)) {
+		throw new Error("Expected a standard LinkedIn request body");
+	}
+	return request.body;
+}
+
 describe("LinkedIn endpoints", () => {
 	test("builds a profile page request from vanity name alone", async () => {
 		const { http, requests } = recordingHttp();
@@ -32,7 +42,7 @@ describe("LinkedIn endpoints", () => {
 		expect(requests).toHaveLength(1);
 		expect(requests[0]?.path).toBe("/flagship-web/in/williamhgates/");
 		expect(requests[0]?.pageKey).toBe("d_flagship3_profile_view_base");
-		expect(requests[0]?.body.requestedArguments.payload).toEqual({
+		expect(standardBody(requests[0]).requestedArguments.payload).toEqual({
 			vanityName: "williamhgates",
 			isVanityNameResolved: true,
 		});
@@ -46,8 +56,10 @@ describe("LinkedIn endpoints", () => {
 		expect(requests[0]?.path).toBe(
 			"/flagship-web/in/satyanadella/details/education/",
 		);
-		expect(requests[0]?.pageKey).toBe("profile_view_base_details");
-		expect(requests[0]?.body.requestedArguments.payload).toEqual({
+		expect(requests[0]?.pageKey).toBe(
+			"d_flagship3_profile_view_base_education_details",
+		);
+		expect(standardBody(requests[0]).requestedArguments.payload).toEqual({
 			vanityName: "satyanadella",
 			isVanityNameResolved: true,
 			sectionType: "education",
@@ -72,7 +84,7 @@ describe("LinkedIn endpoints", () => {
 		);
 		expect(url.searchParams.get("parentSpanId")).toBeTruthy();
 		expect(
-			request?.body.states?.find(
+			standardBody(request).states?.find(
 				(state) => state.key === "SearchResultsGlobalTyahKeywordsBinding",
 			)?.value,
 		).toBe("bill gates");

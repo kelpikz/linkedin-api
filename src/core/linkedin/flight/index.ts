@@ -131,7 +131,10 @@ function flattenRenderedText(
 				depth + 1,
 			);
 		}
-		return flattenRenderedText(props?.children, chunks, depth + 1);
+		return [
+			...flattenRenderedText(props?.children, chunks, depth + 1),
+			...flattenRenderedText(props?.initialContent, chunks, depth + 1),
+		];
 	}
 	return value.flatMap((item) => flattenRenderedText(item, chunks, depth + 1));
 }
@@ -167,7 +170,10 @@ export function collectVisibleText(root: unknown, chunks: ChunkMap): string[] {
 						),
 					);
 				} else {
-					found.push(...flattenRenderedText(props?.children, chunks));
+					found.push(
+						...flattenRenderedText(props?.children, chunks),
+						...flattenRenderedText(props?.initialContent, chunks),
+					);
 				}
 				return;
 			}

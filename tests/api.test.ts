@@ -19,6 +19,18 @@ const emptyProfile: Profile = {
 	skills: null,
 	certifications: null,
 	languages: null,
+	meta: {
+		extracted: [],
+		missing: [
+			"identity",
+			"about",
+			"experience",
+			"education",
+			"skills",
+			"certifications",
+			"languages",
+		],
+	},
 };
 
 describe("API routes", () => {
@@ -120,16 +132,43 @@ describe("API routes", () => {
 		expect(profileSchema.parse(body)).toEqual(emptyProfile);
 	});
 
-	test("returns schema-valid nulls through the default service", async () => {
+	test("rejects an invalid profile URL before loading credentials", async () => {
 		const response = await createApp().request(
-			"/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fsatyanadella%2F",
+			"/api/profile?url=https%3A%2F%2Fexample.com%2Fin%2Fsatyanadella%2F",
 		);
-		const body = profileSchema.parse(await response.json());
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({
+			error: "url must be a LinkedIn profile URL",
+		});
+	});
+
+	test("passes selected sections to profile-service", async () => {
+		const calls: unknown[] = [];
+		const app = createApp({
+			async getProfile(_url, options): Promise<Profile> {
+				calls.push(options);
+				return emptyProfile;
+			},
+		});
+
+		const response = await app.request(
+			"/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fsatyanadella%2F&sections=experience%2Ceducation%2Cexperience",
+		);
 
 		expect(response.status).toBe(200);
-		expect(body).toEqual({
-			...emptyProfile,
-			sourceUrl: "https://www.linkedin.com/in/satyanadella/",
+		expect(calls).toEqual([{ sections: ["experience", "education"] }]);
+	});
+
+	test("rejects an unknown section", async () => {
+		const response = await createApp().request(
+			"/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fsatyanadella%2F&sections=experience%2Cposts",
+		);
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({
+			error:
+				"sections must contain experience, education, skills, certifications, or languages",
 		});
 	});
 });

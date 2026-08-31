@@ -3,6 +3,23 @@ import { z } from "zod";
 const nullableText = z.string().nullable();
 const nullableUrl = z.string().url().nullable();
 
+export const PROFILE_DETAIL_SECTIONS = [
+	"experience",
+	"education",
+	"skills",
+	"certifications",
+	"languages",
+] as const;
+
+export const PROFILE_SECTIONS = [
+	"identity",
+	"about",
+	...PROFILE_DETAIL_SECTIONS,
+] as const;
+
+export const profileDetailSectionSchema = z.enum(PROFILE_DETAIL_SECTIONS);
+export const profileSectionSchema = z.enum(PROFILE_SECTIONS);
+
 export const identitySchema = z
 	.object({
 		name: nullableText,
@@ -60,6 +77,12 @@ export const profileSchema = z
 		skills: z.array(z.string()).nullable(),
 		certifications: z.array(certificationSchema).nullable(),
 		languages: z.array(languageSchema).nullable(),
+		meta: z
+			.object({
+				extracted: z.array(profileSectionSchema),
+				missing: z.array(profileSectionSchema),
+			})
+			.strict(),
 	})
 	.strict();
 
@@ -86,6 +109,8 @@ export type Experience = z.infer<typeof experienceSchema>;
 export type Education = z.infer<typeof educationSchema>;
 export type Certification = z.infer<typeof certificationSchema>;
 export type Language = z.infer<typeof languageSchema>;
+export type ProfileDetailSection = z.infer<typeof profileDetailSectionSchema>;
+export type ProfileSection = z.infer<typeof profileSectionSchema>;
 export type Profile = z.infer<typeof profileSchema>;
 export type ProfileSearchResult = z.infer<typeof profileSearchResultSchema>;
 export type ProfileSearchResponse = z.infer<typeof profileSearchResponseSchema>;

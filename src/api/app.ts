@@ -1,17 +1,43 @@
 import { Hono } from "hono";
-import { getProfile, searchProfiles } from "../core/profile-service.ts";
+import { InvalidProfileUrlError } from "../core/errors.ts";
 import {
+	getProfile,
+	searchProfiles,
+	type GetProfileOptions,
+} from "../core/profile-service.ts";
+import {
+	profileDetailSectionSchema,
 	profileSearchQuerySchema,
 	type Profile,
+	type ProfileDetailSection,
 	type ProfileSearchResponse,
 } from "../core/schema.ts";
 
 interface AppDependencies {
-	getProfile(url: string): Promise<Profile>;
+	getProfile(url: string, options?: GetProfileOptions): Promise<Profile>;
 	searchProfiles(query: string): Promise<ProfileSearchResponse>;
 }
 
 const defaultDependencies: AppDependencies = { getProfile, searchProfiles };
+
+/** Parses and deduplicates the optional comma-separated detail section list. */
+function requestedSections(value: string | undefined):
+	| { success: true; data: ProfileDetailSection[] | undefined }
+	| { success: false } {
+	if (value === undefined) return { success: true, data: undefined };
+	const candidates = [
+		...new Set(
+			value
+				.split(",")
+				.map((section) => section.trim().toLowerCase())
+				.filter(Boolean),
+		),
+	];
+	const result = profileDetailSectionSchema.array().safeParse(candidates);
+	return result.success
+		? { success: true, data: result.data }
+		: { success: false };
+}
 
 export function createApp(
 	overrides: Partial<AppDependencies> = {},
@@ -52,8 +78,27 @@ export function createApp(
 	app.get("/api/profile", async (context) => {
 		const url = context.req.query("url")?.trim();
 		if (!url) return context.json({ error: "url is required" }, 400);
+		const sections = requestedSections(context.req.query("sections"));
+		if (!sections.success) {
+			return context.json(
+				{
+					error:
+						"sections must contain experience, education, skills, certifications, or languages",
+				},
+				400,
+			);
+		}
 
-		return context.json(await dependencies.getProfile(url));
+		try {
+			return context.json(
+				await dependencies.getProfile(url, { sections: sections.data }),
+			);
+		} catch (error) {
+			if (error instanceof InvalidProfileUrlError) {
+				return context.json({ error: error.message }, 400);
+			}
+			throw error;
+		}
 	});
 
 	app.notFound((context) => context.json({ error: "Not found" }, 404));

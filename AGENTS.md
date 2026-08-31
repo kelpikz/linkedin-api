@@ -63,13 +63,20 @@ These look like bugs and are not.
 - Every profile endpoint is keyed by `vanityName` alone. `vieweeProfileId` changes
   nothing. The old search-then-profileId flow is dead. Do not reintroduce it.
 - Profile data spans about ten endpoints, not one. The page call returns top card,
-  about, featured, and an experience summary. Everything else comes from
+  about, featured, and an experience summary. Most collections come from
   `POST /flagship-web/in/<vanity>/details/<section>/`.
 - `profileCardsActivity` is the posts feed, despite the name.
+- The top card can contain several `profile-displayphoto` assets. Use the
+  authenticated profile HTML's `<img fetchPriority="high">` and its largest
+  `srcSet` rendition. Flight is only a fallback. Do not choose by URL shape or
+  largest area alone.
 - A challenge or login page arrives as HTTP 200 with an HTML body. Check the body,
   not only the status.
-- `details/languages/` returned no section on every profile tried so far, and
-  `details/volunteering/` returns 404. Both slugs are unconfirmed.
+- Skills and languages come from `details/skills/` and `details/languages/`.
+  Their rows arrive through `nextPageRequest` pagination, including the first
+  batch at `start: 0`; follow pagers until none remains. The profile-card
+  components contain previews only. `details/volunteering/` returns 404; use
+  `details/volunteering-experiences/` instead.
 
 ## Testing
 

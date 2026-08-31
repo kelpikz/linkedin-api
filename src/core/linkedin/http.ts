@@ -35,15 +35,46 @@ export interface LinkedInPrefetchBody extends LinkedInRequestBody {
 	isPrefetch: true;
 }
 
+export interface LinkedInPaginationRequest {
+	pagerId: string;
+	requestedArguments: LinkedInRequestBody["requestedArguments"];
+	[key: string]: unknown;
+}
+
+export interface LinkedInPaginationBody {
+	pagerId: string;
+	clientArguments: LinkedInRequestBody["requestedArguments"] & {
+		states: LinkedInRequestState[];
+		screenId: string;
+		knownTemplateIds: unknown[];
+	};
+	paginationRequest: LinkedInPaginationRequest;
+}
+
 export interface LinkedInEndpointRequest {
 	path: string;
 	pageKey: string;
 	refererPath: string;
-	body: LinkedInRequestBody;
+	body: LinkedInRequestBody | LinkedInPaginationBody;
+	context?: LinkedInPageContext;
 	extraHeaders?: Record<string, string>;
+	signal?: AbortSignal;
+}
+
+export interface LinkedInPageRequest {
+	path: string;
+	refererPath: string;
+	extraHeaders?: Record<string, string>;
+	signal?: AbortSignal;
+}
+
+export interface LinkedInPageContext {
+	trackingId: string;
+	pageForestId: string;
 }
 
 export interface LinkedInHttp {
+	get?(request: LinkedInPageRequest): Promise<string>;
 	post(request: LinkedInEndpointRequest): Promise<string>;
 }
 
@@ -99,12 +130,20 @@ function randomHex(length: number): string {
 	return Buffer.from(randomBytes(length)).toString("hex");
 }
 
+/** Creates the page identity shared by a page request and its SDUI actions. */
+export function createLinkedInPageContext(): LinkedInPageContext {
+	return {
+		trackingId: randomBase64(16),
+		pageForestId: randomHex(16),
+	};
+}
+
 function requestHeaders(
 	config: LinkedInConfig,
 	request: LinkedInEndpointRequest,
 ): Headers {
-	const trackingId = randomBase64(16);
-	const pageForestId = randomHex(16);
+	const { trackingId, pageForestId } =
+		request.context ?? createLinkedInPageContext();
 	const traceSpanId = randomHex(8);
 	const xLiTrack = JSON.stringify({
 		clientVersion: config.appVersion,
@@ -146,11 +185,53 @@ function requestHeaders(
 	return headers;
 }
 
+/** Builds browser navigation headers for an authenticated profile HTML request. */
+function pageHeaders(
+	config: LinkedInConfig,
+	request: LinkedInPageRequest,
+): Headers {
+	return new Headers({
+		accept:
+			"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+		"accept-language": "en-US,en;q=0.9",
+		cookie: config.cookie,
+		referer: `https://www.linkedin.com${request.refererPath}`,
+		"upgrade-insecure-requests": "1",
+		"user-agent": config.userAgent,
+		...request.extraHeaders,
+	});
+}
+
 export function createLinkedInHttp(
 	config: LinkedInConfig,
 	fetcher: typeof fetch = fetch,
 ): LinkedInHttp {
 	return {
+		async get(request): Promise<string> {
+			const response = await fetcher(
+				new URL(request.path, "https://www.linkedin.com"),
+				{
+					method: "GET",
+					headers: pageHeaders(config, request),
+					redirect: "manual",
+					signal: request.signal,
+				},
+			);
+			const text = await response.text();
+			if (!response.ok || response.status >= 300) {
+				throw new LinkedInRequestError(
+					`LinkedIn returned HTTP ${response.status}.`,
+					response.status,
+				);
+			}
+			if (!text.includes("window.__como_rehydration__")) {
+				throw new LinkedInRequestError(
+					"LinkedIn returned an HTML login or challenge page.",
+					401,
+				);
+			}
+			return text;
+		},
 		async post(request): Promise<string> {
 			const response = await fetcher(
 				new URL(request.path, "https://www.linkedin.com"),
@@ -159,6 +240,7 @@ export function createLinkedInHttp(
 					headers: requestHeaders(config, request),
 					body: JSON.stringify(request.body),
 					redirect: "manual",
+					signal: request.signal,
 				},
 			);
 			const text = await response.text();

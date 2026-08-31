@@ -3,9 +3,10 @@ import {
 	profileSchema,
 	profileSearchQuerySchema,
 	profileSearchResponseSchema,
+	type Profile,
 } from "../src/core/schema.ts";
 
-const emptyProfile = {
+const emptyProfile: Profile = {
 	sourceUrl: "https://www.linkedin.com/in/williamhgates/",
 	name: null,
 	headline: null,
@@ -17,6 +18,18 @@ const emptyProfile = {
 	skills: null,
 	certifications: null,
 	languages: null,
+	meta: {
+		extracted: [],
+		missing: [
+			"identity",
+			"about",
+			"experience",
+			"education",
+			"skills",
+			"certifications",
+			"languages",
+		],
+	},
 };
 
 describe("profile schema", () => {

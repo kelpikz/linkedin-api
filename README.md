@@ -43,7 +43,35 @@ Invoke-RestMethod 'http://localhost:3000/api/profile?url=https%3A%2F%2Fwww.linke
 
 Profile requests do not depend on search results or `profileId`.
 
-The current foundation returns the requested URL and schema-valid null values. Later extraction tickets fill the name, headline, location, About text, profile image, experience, education, skills, certifications, and languages.
+By default, a request fetches identity, About, experience, education, skills,
+certifications, and languages. Use `sections` to limit the upstream calls:
+
+```powershell
+Invoke-RestMethod 'http://localhost:3000/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fwilliamhgates%2F&sections=experience,education'
+```
+
+The response includes `meta.extracted` and `meta.missing`. An empty array means
+LinkedIn returned a recognized empty section. A section is `null` and appears in
+`meta.missing` when its request fails or its current payload cannot be recognized.
+
+## Known limitations
+
+- LinkedIn's web endpoints and Flight component shapes are undocumented and can
+  change without notice.
+- A default uncached profile request makes about ten upstream calls. The service
+  caps concurrency at four and lets one failed section return as missing without
+  failing the rest of the profile.
+- Skills and languages come from `details/skills/` and `details/languages/`.
+  Their initial responses contain pagers rather than the complete rows, so the
+  service follows every `nextPageRequest` until LinkedIn returns no next page.
+  The corresponding profile-card components are previews and are incomplete.
+- The profile image comes from the authenticated profile HTML's high-priority
+  image tag. The profile Flight payload also contains unrelated member images.
+- The previously failing volunteering route is
+  `details/volunteering-experiences/`. Volunteering is not part of the current
+  public response schema.
+- A LinkedIn login or challenge page means the personal session cookie must be
+  refreshed.
 
 ## Verify against a HAR
 
