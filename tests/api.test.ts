@@ -2,14 +2,29 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { z } from "zod";
 import { createApp } from "../src/api/app.ts";
 import { parseApiKeys } from "../src/api/auth.ts";
 import {
+	certificationSchema,
+	educationSchema,
+	experienceSchema,
+	identitySchema,
+	languageSchema,
+	profileDetailSectionSchema,
+	profileMetaSchema,
 	profileSchema,
 	profileSearchResponseSchema,
+	profileSearchResultSchema,
+	profileSectionSchema,
 	type Profile,
 	type ProfileSearchResponse,
 } from "../src/core/schema.ts";
+
+function openApiSchema(schema: z.ZodType) {
+	const { $schema, ...document } = z.toJSONSchema(schema);
+	return document;
+}
 
 const emptyProfile: Profile = {
 	sourceUrl: "https://www.linkedin.com/in/williamhgates/",
@@ -69,6 +84,65 @@ describe("API routes", () => {
 		} finally {
 			rmSync(webRoot, { recursive: true, force: true });
 		}
+	});
+
+	test("serves the OpenAPI document with every public endpoint", async () => {
+		const response = await createApp({}, { apiKeys: [apiKey] }).request(
+			"/openapi.json",
+		);
+		const document = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("content-type")).toContain("application/json");
+		expect(document.openapi).toBe("3.1.0");
+		expect(Object.keys(document.paths).sort()).toEqual([
+			"/api/profile",
+			"/api/search",
+			"/health",
+			"/openapi.json",
+			"/profile-images/{source}",
+		]);
+		expect(document.components.securitySchemes.bearerAuth).toEqual({
+			type: "http",
+			scheme: "bearer",
+			bearerFormat: "API key",
+		});
+		expect(document.components.schemas).toEqual({
+			Error: expect.any(Object),
+			Health: expect.any(Object),
+			Identity: openApiSchema(identitySchema),
+			Experience: openApiSchema(experienceSchema),
+			Education: openApiSchema(educationSchema),
+			Certification: openApiSchema(certificationSchema),
+			Language: openApiSchema(languageSchema),
+			Profile: openApiSchema(profileSchema),
+			ProfileMeta: openApiSchema(profileMetaSchema),
+			ProfileSection: openApiSchema(profileSectionSchema),
+			ProfileDetailSection: openApiSchema(profileDetailSectionSchema),
+			ProfileSearchResult: openApiSchema(profileSearchResultSchema),
+			ProfileSearchResponse: openApiSchema(profileSearchResponseSchema),
+		});
+		expect(document.paths["/api/profile"].get.security).toEqual([
+			{ bearerAuth: [] },
+		]);
+		expect(document.paths["/api/search"].get.security).toEqual([
+			{ bearerAuth: [] },
+		]);
+		expect(
+			document.paths["/api/profile"].get.parameters[1].schema.items,
+		).toEqual({ $ref: "#/components/schemas/ProfileDetailSection" });
+	});
+
+	test("serves an interactive Swagger UI page", async () => {
+		const response = await createApp().request("/docs");
+		const page = await response.text();
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("content-type")).toContain("text/html");
+		expect(page).toContain("<title>LinkedIn Profile API documentation</title>");
+		expect(page).toContain('id="swagger-ui"');
+		expect(page).toContain('url: "/openapi.json"');
+		expect(page).toContain("SwaggerUIBundle");
 	});
 
 	test("keeps unknown API routes as JSON errors", async () => {

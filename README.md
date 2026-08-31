@@ -58,6 +58,14 @@ bun run start
 
 The local service listens on `http://localhost:3000`.
 
+Open [http://localhost:3000/docs](http://localhost:3000/docs) for the interactive
+Swagger UI. The raw OpenAPI document is available at
+[http://localhost:3000/openapi.json](http://localhost:3000/openapi.json).
+
+Use the Swagger UI Authorize button with one value from `API_KEYS`. The
+`/api/search` and `/api/profile` routes expect that key as a bearer token.
+`/health`, `/docs`, `/openapi.json`, and `/profile-images/{token}` are public.
+
 For the HTTPS deployment, point the domain's DNS records at the server, set
 `SITE_ADDRESS` in `.env`, and allow inbound TCP ports 80 and 443:
 

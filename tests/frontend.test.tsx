@@ -73,6 +73,14 @@ describe("frontend scaffold", () => {
 				target: "http://localhost:3000",
 				changeOrigin: true,
 			},
+			"/docs": {
+				target: "http://localhost:3000",
+				changeOrigin: true,
+			},
+			"/openapi.json": {
+				target: "http://localhost:3000",
+				changeOrigin: true,
+			},
 		});
 	});
 
@@ -93,6 +101,13 @@ describe("frontend scaffold", () => {
 		expect(markup).toContain('type="password"');
 		expect(markup).toContain('autoComplete="off"');
 		expect(markup).toContain('aria-label="Show API key"');
+	});
+
+	test("links to API docs in a new tab", () => {
+		const markup = renderToStaticMarkup(<App />);
+
+		expect(markup).toContain('href="/docs"');
+		expect(markup).toContain('target="_blank"');
 	});
 
 	test("seeds the API key from the apiKey query parameter", () => {

@@ -64,6 +64,13 @@ export const languageSchema = z
 	})
 	.strict();
 
+export const profileMetaSchema = z
+	.object({
+		extracted: z.array(profileSectionSchema),
+		missing: z.array(profileSectionSchema),
+	})
+	.strict();
+
 export const profileSchema = z
 	.object({
 		sourceUrl: z.string().url(),
@@ -77,12 +84,7 @@ export const profileSchema = z
 		skills: z.array(z.string()).nullable(),
 		certifications: z.array(certificationSchema).nullable(),
 		languages: z.array(languageSchema).nullable(),
-		meta: z
-			.object({
-				extracted: z.array(profileSectionSchema),
-				missing: z.array(profileSectionSchema),
-			})
-			.strict(),
+		meta: profileMetaSchema,
 	})
 	.strict();
 
@@ -110,6 +112,7 @@ export type Experience = z.infer<typeof experienceSchema>;
 export type Education = z.infer<typeof educationSchema>;
 export type Certification = z.infer<typeof certificationSchema>;
 export type Language = z.infer<typeof languageSchema>;
+export type ProfileMeta = z.infer<typeof profileMetaSchema>;
 export type ProfileDetailSection = z.infer<typeof profileDetailSectionSchema>;
 export type ProfileSection = z.infer<typeof profileSectionSchema>;
 export type Profile = z.infer<typeof profileSchema>;

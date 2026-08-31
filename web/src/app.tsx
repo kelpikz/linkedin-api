@@ -169,6 +169,15 @@ export function App() {
 					</a>
 					<a
 						className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/50 hover:text-forest"
+						href="/docs"
+						target="_blank"
+						rel="noreferrer"
+					>
+						API docs
+						<ExternalLink className="size-3" aria-hidden="true" />
+					</a>
+					<a
+						className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/50 hover:text-forest"
 						href="/health"
 						target="_blank"
 						rel="noreferrer"

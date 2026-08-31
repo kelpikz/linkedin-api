@@ -14,6 +14,7 @@ import {
 	type ProfileSearchResponse,
 } from "../core/schema.ts";
 import { bearerAuth, parseApiKeys } from "./auth.ts";
+import { openApiDocument, swaggerUiPage } from "./openapi.ts";
 
 interface AppDependencies {
 	getProfile(url: string, options?: GetProfileOptions): Promise<Profile>;
@@ -88,6 +89,14 @@ export function createApp(
 	app.get("/", serveStatic({ root: webRoot, path: "index.html" }));
 
 	app.get("/health", (context) => context.json({ ok: true }));
+	app.get("/openapi.json", (context) => context.json(openApiDocument));
+	app.get(
+		"/docs",
+		() =>
+			new Response(swaggerUiPage, {
+				headers: { "content-type": "text/html; charset=UTF-8" },
+			}),
+	);
 
 	app.get("/profile-images/:source", async (context) => {
 		const source = profileImageUrl(context.req.param("source"));
