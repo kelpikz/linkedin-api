@@ -1,12 +1,15 @@
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
 @theme {
-	--color-canvas: #f1eadc;
-	--color-paper: #fbf8ef;
-	--color-ink: #192724;
-	--color-forest: #163c36;
-	--color-clay: #c85b3c;
-	--font-display: Georgia, "Times New Roman", serif;
+	--color-canvas: #f7f7f7;
+	--color-paper: #ffffff;
+	--color-ink: #1a1615;
+	--color-sky: #86bcf5;
+	--color-sky-deep: #327fdb;
+	--color-sky-soft: #e5f2ff;
+	--color-alert: #b84732;
+	--font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
 	--font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
 	--font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
@@ -24,6 +27,8 @@
 		margin: 0;
 		min-width: 320px;
 		min-height: 100vh;
+		background: var(--color-canvas);
+		color: var(--color-ink);
 		font-family: var(--font-sans);
 		-webkit-font-smoothing: antialiased;
 	}
@@ -35,7 +40,90 @@
 
 	a:focus-visible,
 	button:focus-visible {
-		outline: 3px solid color-mix(in srgb, var(--color-clay) 55%, transparent);
+		outline: 3px solid color-mix(in srgb, var(--color-sky-deep) 55%, transparent);
 		outline-offset: 3px;
+	}
+
+	::selection {
+		background: color-mix(in srgb, var(--color-sky) 60%, white);
+		color: var(--color-ink);
+	}
+}
+
+@layer components {
+	.site-shell {
+		background:
+			linear-gradient(180deg, var(--color-sky) 0, #a9cff5 22rem, var(--color-canvas) 49rem),
+			var(--color-canvas);
+	}
+
+	.cloud {
+		position: absolute;
+		width: 24rem;
+		height: 9rem;
+		filter: blur(1px);
+		opacity: 0.88;
+	}
+
+	.cloud::before,
+	.cloud::after {
+		position: absolute;
+		content: "";
+		background: rgba(255, 255, 255, 0.82);
+		filter: blur(1px);
+	}
+
+	.cloud::before {
+		inset: 3rem 1rem 0;
+		border-radius: 50%;
+		box-shadow:
+			4rem -2rem 0 0 rgba(255, 255, 255, 0.72),
+			8rem -0.75rem 0 0 rgba(255, 255, 255, 0.78),
+			12rem -2.5rem 0 -0.25rem rgba(255, 255, 255, 0.68),
+			16rem -0.5rem 0 -0.5rem rgba(255, 255, 255, 0.75);
+	}
+
+	.cloud::after {
+		inset: 5.5rem 0 0;
+		border-radius: 999px;
+		filter: blur(10px);
+	}
+
+	.cloud-left {
+		left: -10rem;
+		top: 5rem;
+		transform: scale(0.9);
+	}
+
+	.cloud-right {
+		right: -8rem;
+		top: 9rem;
+		transform: scale(0.72);
+	}
+
+	.orbital-dot {
+		position: absolute;
+		width: 3px;
+		height: 3px;
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.9);
+		box-shadow:
+			0 0 0 1px rgba(255, 255, 255, 0.35),
+			0 0 24px 5px rgba(255, 255, 255, 0.42);
+	}
+
+	@media (max-width: 640px) {
+		.cloud {
+			opacity: 0.56;
+			transform: scale(0.58);
+		}
+
+		.cloud-left {
+			left: -12rem;
+		}
+
+		.cloud-right {
+			right: -12rem;
+		}
 	}
 }

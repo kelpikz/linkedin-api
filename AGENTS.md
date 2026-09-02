@@ -41,6 +41,8 @@ Do not start a dev server unless asked.
   the account.
 - Never put an API key in the repo, README examples included. Use
   `$LINKEDIN_API_KEY` as the placeholder.
+- Never display the company name in frontend copy, page metadata, or brand
+  labels. Keep the visual theme anonymous and call the tool "Profile reader".
 
 ## Boundaries
 
@@ -53,6 +55,9 @@ Target layout and reasoning are in `docs/adr/adr-0001-shared-core-with-three-sur
   only the search endpoint; fetch profile details after the user selects a result.
   Render the search result's profile image when LinkedIn returns one. Send profile
   images through the same-origin image route because clients can block the CDN.
+- After a profile selection succeeds, replace the search view with the profile,
+  move focus and scroll to its start, and provide a way back to the search results.
+  A failed profile load must leave the results available.
 - `src/core/schema.ts` is the single response contract. Types, MCP tool schemas,
   and the README API docs derive from it. Change it there, not in the consumers.
 - Extractors return their section or `null`, and never throw. Missing sections go

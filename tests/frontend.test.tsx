@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { App, ProfileSearchResults, apiKeyFromSearch } from "../web/src/app.tsx";
+import {
+	App,
+	ProfileSearchResults,
+	apiKeyFromSearch,
+	revealProfile,
+} from "../web/src/app.tsx";
 import {
 	loadProfile,
 	profileImageSource,
@@ -103,11 +108,65 @@ describe("frontend scaffold", () => {
 		expect(markup).toContain('aria-label="Show API key"');
 	});
 
+	test("moves focus and scroll to a loaded profile", () => {
+		const actions: Array<{ name: string; options: unknown }> = [];
+		const target = {
+			focus(options?: FocusOptions) {
+				actions.push({ name: "focus", options });
+			},
+			scrollIntoView(options?: boolean | ScrollIntoViewOptions) {
+				actions.push({ name: "scroll", options });
+			},
+		};
+
+		revealProfile(target, false);
+
+		expect(actions).toEqual([
+			{ name: "focus", options: { preventScroll: true } },
+			{
+				name: "scroll",
+				options: { behavior: "smooth", block: "start" },
+			},
+		]);
+	});
+
+	test("uses the company site theme without naming the company", async () => {
+		const markup = renderToStaticMarkup(<App />);
+		const css = await Bun.file(
+			new URL("../web/src/index.css", import.meta.url),
+		).text();
+		const html = await Bun.file(
+			new URL("../web/index.html", import.meta.url),
+		).text();
+		const prohibitedBrand = ["tr", "oss"].join("");
+
+		expect(`${markup}\n${html}`).not.toMatch(
+			new RegExp(prohibitedBrand, "i"),
+		);
+		expect(markup).toContain("Profile reader");
+		expect(markup).toContain("Structured LinkedIn data");
+		expect(css).toContain("--color-sky: #86bcf5");
+		expect(css).toContain('"Instrument Serif"');
+	});
+
 	test("links to API docs in a new tab", () => {
 		const markup = renderToStaticMarkup(<App />);
 
 		expect(markup).toContain('href="/docs"');
 		expect(markup).toContain('target="_blank"');
+	});
+
+	test("ships an ICO favicon fallback", async () => {
+		const html = await Bun.file(
+			new URL("../web/index.html", import.meta.url),
+		).text();
+		const favicon = Bun.file(
+			new URL("../web/public/favicon.ico", import.meta.url),
+		);
+
+		expect(html).toContain('type="image/x-icon" href="/favicon.ico"');
+		expect(await favicon.exists()).toBe(true);
+		expect(favicon.size).toBeGreaterThan(0);
 	});
 
 	test("seeds the API key from the apiKey query parameter", () => {
@@ -188,6 +247,31 @@ describe("frontend scaffold", () => {
 		expect(imageSource).not.toContain("linkedin.com");
 		expect(markup).toContain(`src="${imageSource}"`);
 		expect(markup).toContain('alt="Satya Nadella"');
+	});
+
+	test("shows which search result is loading", () => {
+		const markup = renderToStaticMarkup(
+			<ProfileSearchResults
+				response={{
+					query: "Satya Nadella",
+					count: 1,
+					results: [
+						{
+							name: "Satya Nadella",
+							vanityName: "satyanadella",
+							url: profile.sourceUrl,
+							profileImageUrl: profile.profileImageUrl,
+						},
+					],
+				}}
+				busy
+				selectedUrl={profile.sourceUrl}
+				onSelect={() => {}}
+			/>,
+		);
+
+		expect(markup).toContain("Loading profile...");
+		expect(markup).toContain('aria-busy="true"');
 	});
 
 	test("shows the API message when profile search fails", async () => {

@@ -23,6 +23,25 @@ Delete entries that stop being true. A log nobody trusts gets skipped.
 
 ---
 
+## 2026-09-02 Open selected profiles as a separate view
+
+Kept the full search list above the loaded profile, so selecting a result made
+the new content appear out of sight below the list. Ajitha called out the poor
+UX.
+
+**Rule:** After a successful selection, replace the search view with the loaded
+profile and move focus and scroll to its start. Keep the results available when
+the user returns or when loading fails. Already in `../AGENTS.md`.
+
+## 2026-09-02 Keep the company name out of the frontend
+
+Applied the company site's visual theme and added its wordmark to the header,
+footer, page title, and metadata. Ajitha asked not to mention the company.
+
+**Rule:** Keep the visual theme, but use "Profile reader" as the product label.
+Do not display the company name in frontend copy or metadata. Already in
+`../AGENTS.md`.
+
 ## 2026-08-31 Keep profile discovery in the frontend
 
 Built the profile page with direct URL lookup only, even though the profile

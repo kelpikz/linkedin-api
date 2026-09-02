@@ -4,12 +4,12 @@ import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-	"inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+	"inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
 	{
 		variants: {
 			variant: {
-				default: "bg-forest text-paper shadow-sm hover:bg-forest/90",
-				outline: "border border-ink/15 bg-transparent text-ink hover:bg-paper",
+				default: "bg-ink text-white shadow-sm hover:bg-ink/85",
+				outline: "border border-ink/15 bg-transparent text-ink hover:bg-sky-soft/55",
 			},
 			size: {
 				default: "h-10 px-4 py-2",

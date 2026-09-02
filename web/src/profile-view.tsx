@@ -46,13 +46,13 @@ interface SectionProps {
 function Section({ children, className = "", icon: Icon, title }: SectionProps) {
 	return (
 		<section
-			className={`rounded-3xl border border-ink/10 bg-paper p-5 shadow-[0_20px_60px_-48px_rgba(22,60,54,0.55)] sm:p-7 ${className}`}
+			className={`rounded-[1.5rem] border border-ink/10 bg-white p-5 shadow-[0_18px_60px_-52px_rgba(28,45,67,0.45)] sm:p-7 ${className}`}
 		>
 			<div className="mb-5 flex items-center gap-3 border-b border-ink/10 pb-4">
-				<span className="grid size-9 place-items-center rounded-xl bg-forest/8 text-forest">
+				<span className="grid size-9 place-items-center rounded-full bg-sky-soft text-sky-deep">
 					<Icon className="size-4.5" aria-hidden="true" />
 				</span>
-				<h3 className="font-display text-2xl tracking-[-0.02em]">{title}</h3>
+				<h3 className="font-display text-3xl tracking-[-0.025em]">{title}</h3>
 			</div>
 			{children}
 		</section>
@@ -76,12 +76,12 @@ function ExperienceList({ entries }: { entries: Experience[] | null }) {
 		<ol className="space-y-5">
 			{entries.map((entry, index) => (
 				<li
-					className="relative border-l border-clay/30 pl-5"
+					className="relative border-l border-sky/65 pl-5"
 					key={`${entry.title}-${entry.company}-${index}`}
 				>
-					<span className="absolute -left-1.5 top-1.5 size-3 rounded-full border-2 border-paper bg-clay" />
+					<span className="absolute -left-1.5 top-1.5 size-3 rounded-full border-2 border-white bg-sky-deep" />
 					<h4 className="font-semibold text-ink">{entry.title ?? "Untitled role"}</h4>
-					<p className="mt-1 text-sm font-medium text-forest">
+					<p className="mt-1 text-sm font-medium text-ink/70">
 						{entry.company ?? "Company not listed"}
 					</p>
 					<DetailLine values={[entry.employmentType, entry.dateRange, entry.duration]} />
@@ -157,34 +157,34 @@ export function ProfileView({ profile }: ProfileViewProps) {
 
 	return (
 		<div className="mt-8 space-y-6" aria-live="polite">
-			<section className="relative overflow-hidden rounded-[2rem] bg-forest px-6 py-7 text-paper sm:px-8 sm:py-9">
-				<div className="pointer-events-none absolute -right-20 -top-24 size-64 rounded-full border-[3.5rem] border-paper/5" />
+			<section className="relative overflow-hidden rounded-[1.75rem] bg-ink px-6 py-7 text-white sm:px-8 sm:py-9">
+				<div className="pointer-events-none absolute -right-20 -top-24 size-64 rounded-full border-[3.5rem] border-sky/10" />
 				<div className="relative flex flex-col gap-6 sm:flex-row sm:items-center">
 					{profile.profileImageUrl ? (
 						<img
-							className="size-24 rounded-3xl border border-paper/15 object-cover shadow-xl sm:size-28"
+							className="size-24 rounded-[1.5rem] border border-white/15 object-cover shadow-xl sm:size-28"
 							src={profileImageSource(profile.profileImageUrl)}
 							alt={profile.name ? `${profile.name} profile` : "LinkedIn profile"}
 							referrerPolicy="no-referrer"
 						/>
 					) : (
-						<div className="grid size-24 place-items-center rounded-3xl bg-paper/10 font-display text-3xl sm:size-28">
+						<div className="grid size-24 place-items-center rounded-[1.5rem] bg-white/10 font-display text-3xl sm:size-28">
 							{initials}
 						</div>
 					)}
 					<div className="min-w-0 flex-1">
-						<p className="text-xs font-semibold uppercase tracking-[0.16em] text-paper/55">
+						<p className="text-xs font-medium uppercase tracking-[0.18em] text-white/45">
 							LinkedIn profile
 						</p>
 						<h2 className="mt-2 font-display text-4xl leading-tight tracking-[-0.035em] sm:text-5xl">
 							{profile.name ?? "Name unavailable"}
 						</h2>
 						{profile.headline ? (
-							<p className="mt-3 max-w-3xl text-base leading-7 text-paper/75">
+							<p className="mt-3 max-w-3xl text-base leading-7 text-white/70">
 								{profile.headline}
 							</p>
 						) : null}
-						<div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-paper/60">
+						<div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/55">
 							{profile.location ? (
 								<span className="inline-flex items-center gap-1.5">
 									<MapPin className="size-4" aria-hidden="true" />
@@ -192,7 +192,7 @@ export function ProfileView({ profile }: ProfileViewProps) {
 								</span>
 							) : null}
 							<a
-								className="inline-flex items-center gap-1.5 underline decoration-paper/25 underline-offset-4 hover:text-paper"
+								className="inline-flex items-center gap-1.5 underline decoration-white/25 underline-offset-4 hover:text-white"
 								href={profile.sourceUrl}
 								target="_blank"
 								rel="noreferrer"
@@ -207,10 +207,10 @@ export function ProfileView({ profile }: ProfileViewProps) {
 
 			{profile.meta.missing.length > 0 ? (
 				<div
-					className="flex gap-3 rounded-2xl border border-clay/25 bg-clay/8 px-4 py-3.5 text-sm text-ink"
+					className="flex gap-3 rounded-2xl border border-alert/20 bg-alert/7 px-4 py-3.5 text-sm text-ink"
 					role="status"
 				>
-					<AlertTriangle className="mt-0.5 size-4.5 shrink-0 text-clay" aria-hidden="true" />
+					<AlertTriangle className="mt-0.5 size-4.5 shrink-0 text-alert" aria-hidden="true" />
 					<p>
 						{profile.meta.missing
 							.map((section) => sectionLabels[section])
@@ -247,7 +247,7 @@ export function ProfileView({ profile }: ProfileViewProps) {
 						<ul className="flex flex-wrap gap-2.5">
 							{profile.skills.map((skill) => (
 								<li
-									className="rounded-full border border-forest/12 bg-forest/5 px-3.5 py-2 text-sm text-forest"
+									className="rounded-full border border-ink/10 bg-sky-soft/70 px-3.5 py-2 text-sm text-ink/75"
 									key={skill}
 								>
 									{skill}
