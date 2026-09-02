@@ -7,14 +7,8 @@ Live deployment: [https://ajitha.fyi](https://ajitha.fyi)
 Source code: [github.com/kelpikz/linkedin-api](https://github.com/kelpikz/linkedin-api)
 
 ## Requirements
-- Public HTTPS deployment at [https://ajitha.fyi](https://ajitha.fyi)
-- A profile endpoint that accepts a LinkedIn profile URL
-- Structured profile data for name, headline, location, About, experience,
-  education, skills, certifications, languages, and profile images when available
-- Backend use of a personal LinkedIn session, without exposing it to clients
-- Public source code at [github.com/kelpikz/linkedin-api](https://github.com/kelpikz/linkedin-api)
-- Setup, API, approach, and limitation documentation in this README
-- No credentials or secrets in the repository
+- Bun -  `> v1.3`
+- LoggedIn LinkedIn Credentials
 
 ## Tech stack
 - **Bun** and **TypeScript**
@@ -159,14 +153,11 @@ The implementation works in these steps:
 - LinkedIn's private endpoints and payloads can change without notice.
 - The backend needs a current personal LinkedIn session cookie. Login or
   challenge HTML means the cookie must be refreshed.
+  Tokens might expire, there is currently no way to guard against that.
 - A default uncached profile request makes about ten upstream calls. Skills and
   languages can add paginated calls.
 - Profile visibility and the signed-in account affect the returned fields.
 - Missing requested sections appear as `null` and in `meta.missing`.
-- Volunteering is not in the public response schema. The working LinkedIn route
-  is `details/volunteering-experiences/`.
-- There is no persistent cache or rate-limit store yet. The service does not
-  speculatively fetch unrequested sections.
 
 ## Tests
 
