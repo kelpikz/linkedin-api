@@ -135,6 +135,13 @@ Unavailable requested sections are `null` and appear in `meta.missing`.
 API errors use `400` for invalid input, `401` for missing or invalid bearer
 tokens, `404` for unknown routes, and `502` when an image cannot be proxied.
 
+Each key gets ten `/api/*` requests a minute. The eleventh returns `429` with
+`{"error":"Rate limit exceeded"}` and a `Retry-After` header in seconds. The
+window slides, so ten requests in any sixty seconds is the ceiling. One profile
+request costs about ten upstream LinkedIn calls, which is what the budget
+protects. Repeated wrong bearer tokens from one address also return `429`, with
+`{"error":"Too many requests"}`.
+
 ## Approach
 
 The implementation works in these steps:

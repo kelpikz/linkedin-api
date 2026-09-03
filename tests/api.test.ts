@@ -364,3 +364,234 @@ describe("API routes", () => {
 		});
 	});
 });
+
+describe("API key brute force protection", () => {
+	function from(ip: string, authorization?: string): RequestInit {
+		const headers: Record<string, string> = { "x-forwarded-for": ip };
+		if (authorization) headers.authorization = authorization;
+		return { headers };
+	}
+
+	function appWithClock(clock: { value: number }) {
+		return createApp(
+			{},
+			{
+				apiKeys: [apiKey],
+				authRateLimit: {
+					maxFailures: 3,
+					windowMs: 60_000,
+					now: () => clock.value,
+				},
+			},
+		);
+	}
+
+	test("blocks an address after repeated wrong keys", async () => {
+		const app = appWithClock({ value: 0 });
+
+		for (let attempt = 0; attempt < 3; attempt += 1) {
+			const response = await app.request(
+				"/api/search?q=gates",
+				from("203.0.113.5", "Bearer wrong-key"),
+			);
+			expect(response.status).toBe(401);
+		}
+
+		const blocked = await app.request(
+			"/api/search?q=gates",
+			from("203.0.113.5", "Bearer wrong-key"),
+		);
+
+		expect(blocked.status).toBe(429);
+		expect(blocked.headers.get("retry-after")).toBe("60");
+		expect(await blocked.json()).toEqual({ error: "Too many requests" });
+	});
+
+	test("allows attempts again after the window passes", async () => {
+		const clock = { value: 0 };
+		const app = appWithClock(clock);
+		const attempt = () =>
+			app.request("/api/search?q=gates", from("203.0.113.5", "Bearer wrong-key"));
+
+		for (let count = 0; count < 4; count += 1) await attempt();
+		expect((await attempt()).status).toBe(429);
+
+		clock.value = 60_000;
+
+		expect((await attempt()).status).toBe(401);
+	});
+
+	test("counts each client address separately", async () => {
+		const app = appWithClock({ value: 0 });
+
+		for (let count = 0; count < 4; count += 1) {
+			await app.request(
+				"/api/search?q=gates",
+				from("203.0.113.5", "Bearer wrong-key"),
+			);
+		}
+
+		const other = await app.request(
+			"/api/search?q=gates",
+			from("198.51.100.7", "Bearer wrong-key"),
+		);
+
+		expect(other.status).toBe(401);
+	});
+
+	test("never blocks a request that carries a valid key", async () => {
+		const app = createApp(
+			{
+				async searchProfiles(): Promise<ProfileSearchResponse> {
+					return { query: "gates", count: 0, results: [] };
+				},
+			},
+			{
+				apiKeys: [apiKey],
+				authRateLimit: { maxFailures: 3, windowMs: 60_000, now: () => 0 },
+			},
+		);
+
+		for (let count = 0; count < 10; count += 1) {
+			await app.request(
+				"/api/search?q=gates",
+				from("203.0.113.5", "Bearer wrong-key"),
+			);
+		}
+
+		const response = await app.request(
+			"/api/search?q=gates",
+			from("203.0.113.5", `Bearer ${apiKey}`),
+		);
+
+		expect(response.status).toBe(200);
+	});
+
+	test("clears the count after a valid key arrives", async () => {
+		const app = createApp(
+			{
+				async searchProfiles(): Promise<ProfileSearchResponse> {
+					return { query: "gates", count: 0, results: [] };
+				},
+			},
+			{
+				apiKeys: [apiKey],
+				authRateLimit: { maxFailures: 3, windowMs: 60_000, now: () => 0 },
+			},
+		);
+		const wrong = () =>
+			app.request("/api/search?q=gates", from("203.0.113.5", "Bearer wrong-key"));
+
+		for (let count = 0; count < 2; count += 1) await wrong();
+		await app.request(
+			"/api/search?q=gates",
+			from("203.0.113.5", `Bearer ${apiKey}`),
+		);
+
+		for (let count = 0; count < 3; count += 1) {
+			expect((await wrong()).status).toBe(401);
+		}
+	});
+});
+
+describe("API request rate limit", () => {
+	const otherKey = "second-key";
+	const stubs = {
+		async getProfile(): Promise<Profile> {
+			return emptyProfile;
+		},
+		async searchProfiles(): Promise<ProfileSearchResponse> {
+			return { query: "gates", count: 0, results: [] };
+		},
+	};
+
+	function appWithBudget(clock: { value: number }) {
+		return createApp(stubs, {
+			apiKeys: [apiKey, otherKey],
+			// A wide failure budget keeps the brute-force lockout out of these tests.
+			authRateLimit: { maxFailures: 1_000, windowMs: 60_000, now: () => 0 },
+			rateLimit: { maxRequests: 10, windowMs: 60_000, now: () => clock.value },
+		});
+	}
+
+	function search(app: ReturnType<typeof createApp>, key = apiKey) {
+		return app.request("/api/search?q=gates", {
+			headers: { authorization: `Bearer ${key}` },
+		});
+	}
+
+	function profile(app: ReturnType<typeof createApp>, key = apiKey) {
+		return app.request(
+			"/api/profile?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fwilliamhgates%2F",
+			{ headers: { authorization: `Bearer ${key}` } },
+		);
+	}
+
+	test("allows ten requests a minute and refuses the eleventh", async () => {
+		const app = appWithBudget({ value: 0 });
+
+		for (let count = 0; count < 10; count += 1) {
+			expect((await search(app)).status).toBe(200);
+		}
+
+		const blocked = await search(app);
+
+		expect(blocked.status).toBe(429);
+		expect(blocked.headers.get("retry-after")).toBe("60");
+		expect(await blocked.json()).toEqual({ error: "Rate limit exceeded" });
+	});
+
+	test("defaults to ten requests a minute", async () => {
+		const app = createApp(stubs, { apiKeys: [apiKey] });
+
+		for (let count = 0; count < 10; count += 1) {
+			expect((await search(app)).status).toBe(200);
+		}
+
+		expect((await search(app)).status).toBe(429);
+	});
+
+	test("spends one budget across search and profile", async () => {
+		const app = appWithBudget({ value: 0 });
+
+		for (let count = 0; count < 5; count += 1) {
+			expect((await search(app)).status).toBe(200);
+			expect((await profile(app)).status).toBe(200);
+		}
+
+		expect((await search(app)).status).toBe(429);
+	});
+
+	test("counts each API key separately", async () => {
+		const app = appWithBudget({ value: 0 });
+
+		for (let count = 0; count < 11; count += 1) await search(app);
+
+		expect((await search(app, otherKey)).status).toBe(200);
+	});
+
+	test("frees a slot once its request leaves the window", async () => {
+		const clock = { value: 0 };
+		const app = appWithBudget(clock);
+
+		for (let count = 0; count < 10; count += 1) await search(app);
+
+		clock.value = 30_000;
+		const blocked = await search(app);
+		expect(blocked.status).toBe(429);
+		expect(blocked.headers.get("retry-after")).toBe("30");
+
+		clock.value = 60_000;
+		expect((await search(app)).status).toBe(200);
+	});
+
+	test("charges nothing to a key that fails auth", async () => {
+		const app = appWithBudget({ value: 0 });
+
+		for (let count = 0; count < 20; count += 1) {
+			expect((await search(app, "wrong-key")).status).toBe(401);
+		}
+
+		expect((await search(app)).status).toBe(200);
+	});
+});

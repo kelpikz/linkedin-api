@@ -34,6 +34,23 @@ const unauthorizedResponse = {
 	},
 };
 
+const rateLimitedResponse = {
+	description:
+		"The key spent its budget of ten requests a minute. Retry-After holds the seconds until a slot frees up.",
+	headers: {
+		"Retry-After": {
+			description: "Seconds to wait before the next request.",
+			schema: { type: "integer" },
+		},
+	},
+	content: {
+		"application/json": {
+			schema: errorResponse,
+			example: { error: "Rate limit exceeded" },
+		},
+	},
+};
+
 /** The public API contract rendered by Swagger UI and returned at /openapi.json. */
 export const openApiDocument = {
 	openapi: "3.1.0",
@@ -191,6 +208,7 @@ export const openApiDocument = {
 						},
 					},
 					"401": unauthorizedResponse,
+					"429": rateLimitedResponse,
 				},
 			},
 		},
@@ -280,6 +298,7 @@ export const openApiDocument = {
 						},
 					},
 					"401": unauthorizedResponse,
+					"429": rateLimitedResponse,
 				},
 			},
 		},

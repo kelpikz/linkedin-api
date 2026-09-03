@@ -13,7 +13,13 @@ import {
 	type ProfileDetailSection,
 	type ProfileSearchResponse,
 } from "../core/schema.ts";
-import { bearerAuth, parseApiKeys } from "./auth.ts";
+import {
+	bearerAuth,
+	keyRateLimit,
+	parseApiKeys,
+	type AuthRateLimit,
+	type RequestRateLimit,
+} from "./auth.ts";
 import { openApiDocument, swaggerUiPage } from "./openapi.ts";
 
 interface AppDependencies {
@@ -25,6 +31,8 @@ interface AppDependencies {
 interface AppOptions {
 	webRoot?: string;
 	apiKeys?: readonly string[];
+	authRateLimit?: Partial<AuthRateLimit>;
+	rateLimit?: Partial<RequestRateLimit>;
 }
 
 /** Fetches one signed LinkedIn media URL without following it to another host. */
@@ -123,7 +131,8 @@ export function createApp(
 		}
 	});
 
-	app.use("/api/*", bearerAuth(apiKeys));
+	app.use("/api/*", bearerAuth(apiKeys, options.authRateLimit));
+	app.use("/api/*", keyRateLimit(options.rateLimit));
 
 	app.get("/api/search", async (context) => {
 		const query = profileSearchQuerySchema.safeParse(context.req.query("q"));
